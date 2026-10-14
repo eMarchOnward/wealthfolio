@@ -19,6 +19,16 @@ pub use auth::{ActorKind, McpAuthContext};
 pub use handler::WealthfolioMcpHandler;
 pub use service::McpServerBuilder;
 
+/// Server instructions both hosts give MCP clients at initialize.
+pub const SERVER_INSTRUCTIONS: &str = "Read and change the user's Wealthfolio data: accounts, \
+holdings, valuations, performance, activities, income, spending (reports, budgets, events, \
+categories, rules), goals and retirement plans, allocation targets, alternative assets and loans, \
+market data, health, and classifications. The planning tools run the retirement projections and \
+the tax-optimized plan; pass planOverrides (a JSON merge patch of the goal's plan settings) to try \
+changes without saving them. Update tools take a JSON merge patch (`changes`) and accept dryRun; \
+delete tools need \"confirm\": true. The tools available depend on the scopes granted to the \
+access token in use.";
+
 /// Fingerprint a bearer token for discovery files and audit rows:
 /// `sha256:<hex>` of the token bytes. Never log or store raw tokens.
 pub fn token_fingerprint(token: &str) -> String {

@@ -77,7 +77,14 @@ export function ProgressBar({ progress, fillClass }: { progress: number; fillCla
   );
 }
 
-export function GoalCard({ goal }: { goal: Goal }) {
+export function GoalCard({
+  goal,
+  plannedWithRetirement = false,
+}: {
+  goal: Goal;
+  /** A home the retirement plan pays for: it has no savings of its own to track. */
+  plannedWithRetirement?: boolean;
+}) {
   const dateFormatting = useDateFormatting();
   const formatting = useAmountFormatting();
   const numberFormatting = useNumberFormatting();
@@ -209,40 +216,59 @@ export function GoalCard({ goal }: { goal: Goal }) {
                 {targetDateStr ? `${targetDateStr} · ${timeLeftStr}` : timeLeftStr}
               </p>
             </div>
-            <div className="text-right">
-              <div className={cn("font-serif text-[20px] leading-none", accentClass)}>
-                {progressPct}
+            {plannedWithRetirement ? (
+              <div className="text-muted-foreground text-right text-[9px] tracking-[0.15em]">
+                {t("goals:card.with_retirement")}
               </div>
-              <div className="text-muted-foreground mt-0.5 text-[9px] tracking-[0.15em]">
-                {t("goals:card.complete")}
+            ) : (
+              <div className="text-right">
+                <div className={cn("font-serif text-[20px] leading-none", accentClass)}>
+                  {progressPct}
+                </div>
+                <div className="text-muted-foreground mt-0.5 text-[9px] tracking-[0.15em]">
+                  {t("goals:card.complete")}
+                </div>
               </div>
-            </div>
+            )}
           </div>
 
-          {/* Amounts row: saved · remaining */}
-          <div className="mt-2.5 flex items-end justify-between gap-3">
-            <div>
+          {plannedWithRetirement ? (
+            <div className="mb-3 mt-2.5">
               <div className="font-serif text-[14px] font-semibold tabular-nums">
-                {currentDisplay}
+                {targetDisplay}
               </div>
               <div className="text-muted-foreground mt-0.5 text-[10px]">
-                {t("goals:card.saved_of")} <span className="tabular-nums">{targetDisplay}</span>
+                {t("goals:card.needed_at_purchase")}
               </div>
             </div>
-            <div className="text-right">
-              <div className="font-serif text-[14px] font-semibold tabular-nums">
-                {remainingDisplay}
+          ) : (
+            <>
+              {/* Amounts row: saved · remaining */}
+              <div className="mt-2.5 flex items-end justify-between gap-3">
+                <div>
+                  <div className="font-serif text-[14px] font-semibold tabular-nums">
+                    {currentDisplay}
+                  </div>
+                  <div className="text-muted-foreground mt-0.5 text-[10px]">
+                    {t("goals:card.saved_of")} <span className="tabular-nums">{targetDisplay}</span>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="font-serif text-[14px] font-semibold tabular-nums">
+                    {remainingDisplay}
+                  </div>
+                  <div className="text-muted-foreground mt-0.5 text-[10px]">
+                    {hasRemaining ? t("goals:card.remaining") : t("goals:card.target_met")}
+                  </div>
+                </div>
               </div>
-              <div className="text-muted-foreground mt-0.5 text-[10px]">
-                {hasRemaining ? t("goals:card.remaining") : t("goals:card.target_met")}
-              </div>
-            </div>
-          </div>
 
-          {/* Progress bar */}
-          <div className="-mx-4 mt-2.5">
-            <ProgressBar progress={progress} fillClass={progressBarClass} />
-          </div>
+              {/* Progress bar */}
+              <div className="-mx-4 mt-2.5">
+                <ProgressBar progress={progress} fillClass={progressBarClass} />
+              </div>
+            </>
+          )}
         </div>
       </Card>
     </Link>

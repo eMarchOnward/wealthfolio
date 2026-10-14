@@ -941,7 +941,8 @@ export type GoalType = "retirement" | "education" | "wedding" | "home" | "car" |
 export type GoalLifecycle = "active" | "achieved" | "archived";
 export type GoalHealth = "on_track" | "at_risk" | "off_track" | "not_applicable";
 export type PlanKind = "retirement" | "save_up";
-export type PlannerMode = "fire" | "traditional";
+/** "optimized" is the tax-optimized style; its projections retire at the target age. */
+export type PlannerMode = "fire" | "traditional" | "optimized";
 
 export interface Goal {
   id: string;

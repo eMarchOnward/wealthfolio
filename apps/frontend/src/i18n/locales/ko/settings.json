@@ -1407,8 +1407,6 @@
     "dialog_client_config_desc": "바로 붙여넣을 수 있는 구성입니다(이 토큰 포함). Claude, Cursor, Windsurf, Cline과 호환됩니다. VS Code 및 기타 클라이언트는 다릅니다 — MCP 서버 카드의 도움말을 참조하세요.",
     "dialog_copy_config_aria": "클라이언트 구성 복사",
     "dialog_done": "완료",
-    "scope_locked_title": "활동에 필요 — 확정/쓰기",
-    "scope_locked_market_data_title": "시장 데이터 — 쓰기에 필요",
     "dialog_scope_aria": "{{label}}: {{description}}",
     "token_label": "토큰",
     "scope": {

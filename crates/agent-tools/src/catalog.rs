@@ -36,7 +36,7 @@ impl AgentToolCatalog {
     }
 
     /// The MCP catalog: read + draft/suggest + commit, import, transfer
-    /// linking and quote import tools. Scope filtering at the boundary
+    /// linking, quote import and platform tools. Scope filtering at the boundary
     /// (`execute`, `list_tools`) hides whatever a token can't reach.
     pub fn mcp_catalog() -> Self {
         let mut tools = crate::tools::v1_read_tools();
@@ -45,6 +45,7 @@ impl AgentToolCatalog {
         tools.extend(crate::tools::import_tools());
         tools.extend(crate::tools::transfer_link_tools());
         tools.extend(crate::tools::quote_import_tools());
+        tools.extend(crate::tools::platform_tools());
         Self::new(tools)
     }
 
@@ -446,6 +447,149 @@ mod tests {
             assert!(
                 matches!(err, AgentToolError::InvalidInput(_)),
                 "{name}: oversized batch should be rejected with InvalidInput, got: {err}"
+            );
+        }
+    }
+
+    fn all_scopes() -> AgentScopeSet {
+        crate::scope::AgentScope::ALL.iter().copied().collect()
+    }
+
+    #[test]
+    fn mcp_catalog_tool_names_are_unique_and_schemas_are_objects() {
+        let catalog = AgentToolCatalog::mcp_catalog();
+        let mut names = std::collections::HashSet::new();
+        for tool in catalog.iter() {
+            assert!(names.insert(tool.name()), "duplicate tool {}", tool.name());
+            assert_eq!(
+                tool.input_schema()["type"],
+                "object",
+                "{} schema must be an object",
+                tool.name()
+            );
+            assert!(
+                !tool.required_scopes().is_empty(),
+                "{} must require a scope",
+                tool.name()
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn execute_denies_every_mcp_tool_with_empty_scopes() {
+        let catalog = AgentToolCatalog::mcp_catalog();
+        for name in catalog.iter().map(|tool| tool.name()).collect::<Vec<_>>() {
+            let err = catalog
+                .execute(
+                    Arc::new(PanicEnv::default()),
+                    &AgentScopeSet::new(),
+                    name,
+                    serde_json::json!({}),
+                )
+                .await
+                .unwrap_err();
+            assert!(
+                matches!(err, AgentToolError::ScopeDenied { .. }),
+                "tool {name} should be scope-denied, got: {err}"
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn read_only_token_reaches_no_tool_that_changes_data() {
+        let catalog = AgentToolCatalog::mcp_catalog();
+        let read_only = AgentScopeSet::read_only();
+        for tool in catalog.iter() {
+            let changes_data = matches!(
+                tool.access_level(),
+                crate::tool::AgentToolAccess::Write | crate::tool::AgentToolAccess::Draft
+            );
+            if changes_data {
+                assert!(
+                    !read_only.grants_all(tool.required_scopes()),
+                    "read-only token reaches {}",
+                    tool.name()
+                );
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn deletes_need_confirmation_before_touching_services() {
+        // PanicEnv proves the refusal happens before any service is reached.
+        let catalog = AgentToolCatalog::mcp_catalog();
+        let args = serde_json::json!({
+            "id": "x", "targetId": "x", "assetId": "x", "quoteId": "x", "rateId": "x",
+            "taxonomyId": "x", "categoryId": "x", "confirm": false
+        });
+        let deletes: Vec<&str> = catalog
+            .iter()
+            .map(|tool| tool.name())
+            .filter(|name| name.starts_with("delete_"))
+            .collect();
+        assert!(deletes.len() >= 12, "delete tools: {deletes:?}");
+        for name in deletes {
+            let err = catalog
+                .execute(
+                    Arc::new(PanicEnv::default()),
+                    &all_scopes(),
+                    name,
+                    args.clone(),
+                )
+                .await
+                .unwrap_err();
+            assert!(
+                matches!(err, AgentToolError::InvalidInput(ref message) if message.contains("confirm")),
+                "{name} must ask for confirmation, got: {err}"
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn platform_tools_report_a_host_without_platform_services() {
+        let catalog = AgentToolCatalog::mcp_catalog();
+        for (name, args) in [
+            ("get_budget", serde_json::json!({})),
+            ("get_allocation_targets", serde_json::json!({})),
+            ("get_exchange_rates", serde_json::json!({})),
+            (
+                "run_retirement_projection",
+                serde_json::json!({ "goalId": "g" }),
+            ),
+        ] {
+            let err = catalog
+                .execute(Arc::new(PanicEnv::default()), &all_scopes(), name, args)
+                .await
+                .unwrap_err();
+            assert!(
+                matches!(err, AgentToolError::ExecutionFailed(ref message) if message.contains("not available")),
+                "{name}: {err}"
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn planning_runs_need_the_run_scope() {
+        let catalog = AgentToolCatalog::mcp_catalog();
+        let read_only = AgentScopeSet::read_only();
+        for name in [
+            "run_retirement_projection",
+            "run_retirement_monte_carlo",
+            "optimize_tax_plan",
+            "run_tax_plan_success",
+        ] {
+            let err = catalog
+                .execute(
+                    Arc::new(PanicEnv::default()),
+                    &read_only,
+                    name,
+                    serde_json::json!({ "goalId": "g" }),
+                )
+                .await
+                .unwrap_err();
+            assert!(
+                matches!(err, AgentToolError::ScopeDenied { ref missing, .. } if missing == "planning:run"),
+                "{name}: {err}"
             );
         }
     }

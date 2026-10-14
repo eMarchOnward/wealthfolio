@@ -312,12 +312,17 @@ function headerMatchesAliases(header: string, aliases: readonly string[]): boole
 }
 
 function headerIsBlockedForField(header: string, field: ImportFormat): boolean {
+  const normalized = normalizeHeader(header);
+  const compact = normalized.replace(/\s/g, "");
+
+  // "Account type" (e.g. Vanguard's CASH/MARGIN) classifies a row; it never names an account.
+  if (field === ImportFormat.ACCOUNT) {
+    return compact.includes("accounttype");
+  }
+
   if (field !== ImportFormat.AMOUNT) {
     return false;
   }
-
-  const normalized = normalizeHeader(header);
-  const compact = normalized.replace(/\s/g, "");
 
   return normalized.includes("market value") || compact.includes("marketvalue");
 }

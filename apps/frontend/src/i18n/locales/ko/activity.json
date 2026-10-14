@@ -304,6 +304,7 @@
   "page": {
     "import_from_csv": "CSV에서 가져오기",
     "transfer_holdings": "보유 종목 이체",
+    "link_matching_transfers": "일치하는 이체 연결",
     "add_personal_asset": "개인 자산 추가",
     "add_activities": "활동 추가",
     "ask_ai_categorize": "AI에게 분류 요청",

@@ -521,6 +521,10 @@ impl ActivityServiceTrait for MockActivityService {
         unimplemented!("MockActivityService::unlink_transfer_activities")
     }
 
+    async fn link_exact_transfer_matches(&self) -> CoreResult<usize> {
+        unimplemented!("MockActivityService::link_exact_transfer_matches")
+    }
+
     async fn bulk_mutate_activities(
         &self,
         _request: ActivityBulkMutationRequest,
@@ -853,6 +857,99 @@ impl GoalServiceTrait for MockGoalService {
     ) -> CoreResult<PreparedRetirementSimulationInput> {
         Err(CoreError::Unexpected(
             "MockGoalService::prepare_retirement_simulation_input is not implemented".to_string(),
+        ))
+    }
+
+    async fn retirement_tax_plan_accounts(
+        &self,
+        _goal_id: &str,
+        _valuation_map: &AccountValuationMap,
+        _cost_basis_map: &AccountValuationMap,
+        _asset_map: &wealthfolio_core::goals::AccountAssetMap,
+    ) -> CoreResult<wealthfolio_core::planning::retirement::TaxOptimizerAccounts> {
+        Err(CoreError::Unexpected(
+            "MockGoalService::retirement_tax_plan_accounts is not implemented".to_string(),
+        ))
+    }
+
+    async fn optimize_retirement_tax_plan(
+        &self,
+        _goal_id: &str,
+        _valuation_map: &AccountValuationMap,
+        _cost_basis_map: &AccountValuationMap,
+        _asset_map: &wealthfolio_core::goals::AccountAssetMap,
+    ) -> CoreResult<wealthfolio_core::planning::retirement::TaxOptimizedPlan> {
+        Err(CoreError::Unexpected(
+            "MockGoalService::optimize_retirement_tax_plan is not implemented".to_string(),
+        ))
+    }
+
+    async fn retirement_tax_plan_success(
+        &self,
+        _goal_id: &str,
+        _valuation_map: &AccountValuationMap,
+        _cost_basis_map: &AccountValuationMap,
+        _asset_map: &wealthfolio_core::goals::AccountAssetMap,
+        _mode: wealthfolio_core::planning::retirement::SuccessPathMode,
+        _retirement_age: Option<u32>,
+    ) -> CoreResult<wealthfolio_core::planning::retirement::TaxPlanSuccess> {
+        Err(CoreError::Unexpected(
+            "MockGoalService::retirement_tax_plan_success is not implemented".to_string(),
+        ))
+    }
+
+    async fn retirement_tax_plan_safe_spending(
+        &self,
+        _goal_id: &str,
+        _valuation_map: &AccountValuationMap,
+        _cost_basis_map: &AccountValuationMap,
+        _asset_map: &wealthfolio_core::goals::AccountAssetMap,
+        _mode: wealthfolio_core::planning::retirement::SuccessPathMode,
+        _retirement_age: Option<u32>,
+        _target_rate: f64,
+    ) -> CoreResult<wealthfolio_core::planning::retirement::TaxPlanSafeSpending> {
+        Err(CoreError::Unexpected(
+            "MockGoalService::retirement_tax_plan_safe_spending is not implemented".to_string(),
+        ))
+    }
+
+    async fn retirement_tax_plan_choice_costs(
+        &self,
+        _goal_id: &str,
+        _valuation_map: &AccountValuationMap,
+        _cost_basis_map: &AccountValuationMap,
+        _asset_map: &wealthfolio_core::goals::AccountAssetMap,
+        _retirement_age: Option<u32>,
+    ) -> CoreResult<wealthfolio_core::planning::retirement::TaxPlanChoiceCosts> {
+        Err(CoreError::Unexpected(
+            "MockGoalService::retirement_tax_plan_choice_costs is not implemented".to_string(),
+        ))
+    }
+
+    async fn retirement_tax_plan_stress_tests(
+        &self,
+        _goal_id: &str,
+        _valuation_map: &AccountValuationMap,
+        _cost_basis_map: &AccountValuationMap,
+        _asset_map: &wealthfolio_core::goals::AccountAssetMap,
+        _retirement_age: Option<u32>,
+    ) -> CoreResult<wealthfolio_core::planning::retirement::TaxPlanStressTests> {
+        Err(CoreError::Unexpected(
+            "MockGoalService::retirement_tax_plan_stress_tests is not implemented".to_string(),
+        ))
+    }
+
+    async fn retirement_tax_plan_conversion_regret(
+        &self,
+        _goal_id: &str,
+        _valuation_map: &AccountValuationMap,
+        _cost_basis_map: &AccountValuationMap,
+        _asset_map: &wealthfolio_core::goals::AccountAssetMap,
+        _mode: wealthfolio_core::planning::retirement::SuccessPathMode,
+        _retirement_age: Option<u32>,
+    ) -> CoreResult<wealthfolio_core::planning::retirement::TaxPlanConversionRegret> {
+        Err(CoreError::Unexpected(
+            "MockGoalService::retirement_tax_plan_conversion_regret is not implemented".to_string(),
         ))
     }
 

@@ -11,6 +11,7 @@ const adapterMocks = vi.hoisted(() => ({
   updateActivity: vi.fn(),
   deleteActivity: vi.fn(),
   linkTransferActivities: vi.fn(),
+  linkExactTransferMatches: vi.fn(),
   saveActivities: vi.fn(),
   unlinkTransferActivities: vi.fn(),
   logger: { error: vi.fn() },

@@ -1543,6 +1543,66 @@ impl ActivityService {
         })
     }
 
+    /// Unlinked cash transfers that pair up without any judgment call: each leg's
+    /// only candidate is the other, with the same date, amount and currency.
+    /// Returns `(transfer_out_id, transfer_in_id)` pairs. Transfers that carry any
+    /// link group (such as one left with a single leg) are left for manual linking.
+    fn exact_unlinked_transfer_pairs(
+        every_activity: &[Activity],
+        open_account_ids: &HashSet<String>,
+    ) -> Vec<(String, String)> {
+        let transfer_resolution = TransferPairResolution::from_activities(every_activity);
+        let open: Vec<&Activity> = every_activity
+            .iter()
+            .filter(|activity| {
+                activity.is_posted() && open_account_ids.contains(&activity.account_id)
+            })
+            .collect();
+        let is_linkable = |activity: &Activity| {
+            activity
+                .source_group_id
+                .as_deref()
+                .is_none_or(|group_id| group_id.trim().is_empty())
+                && matches!(
+                    transfer_resolution.link_state(activity),
+                    Some(TransferLinkState::External | TransferLinkState::NeedsCounterpart)
+                )
+        };
+        let only_same_day_match = |source: &Activity| -> Option<String> {
+            let opposite_type = Self::opposite_transfer_type(source.effective_type())?;
+            let candidates = Self::transfer_match_candidates(
+                source,
+                opposite_type,
+                open.iter()
+                    .copied()
+                    .filter(|candidate| is_linkable(candidate)),
+                &transfer_resolution,
+                0,
+                2,
+            );
+            match candidates.as_slice() {
+                [only] if only.match_kind == "cash" => Some(only.activity.id.clone()),
+                _ => None,
+            }
+        };
+        let by_id: HashMap<&str, &Activity> = open
+            .iter()
+            .map(|activity| (activity.id.as_str(), *activity))
+            .collect();
+
+        open.iter()
+            .filter(|activity| {
+                activity.effective_type() == ACTIVITY_TYPE_TRANSFER_OUT && is_linkable(activity)
+            })
+            .filter_map(|transfer_out| {
+                let transfer_in_id = only_same_day_match(transfer_out)?;
+                let transfer_in = by_id.get(transfer_in_id.as_str())?;
+                (only_same_day_match(transfer_in).as_deref() == Some(transfer_out.id.as_str()))
+                    .then(|| (transfer_out.id.clone(), transfer_in_id))
+            })
+            .collect()
+    }
+
     fn build_transfer_match_candidate(
         source: &Activity,
         candidate: &Activity,
@@ -5143,6 +5203,55 @@ impl ActivityServiceTrait for ActivityService {
         );
 
         Ok((transfer_in, transfer_out))
+    }
+
+    async fn link_exact_transfer_matches(&self) -> Result<usize> {
+        let activity_repository = Arc::clone(&self.activity_repository);
+        let account_service = Arc::clone(&self.account_service);
+        let pairs = crate::portfolio::coordinator::blocking(move || {
+            let every_activity =
+                activity_repository.get_activities_including_archived_accounts()?;
+            let open_account_ids: HashSet<String> = account_service
+                .get_non_archived_accounts()?
+                .into_iter()
+                .map(|account| account.id)
+                .collect();
+            Ok(Self::exact_unlinked_transfer_pairs(
+                &every_activity,
+                &open_account_ids,
+            ))
+        })
+        .await?;
+
+        let mut account_ids = HashSet::new();
+        let mut asset_ids = HashSet::new();
+        let mut currencies = HashSet::new();
+        let mut linked = Vec::with_capacity(pairs.len() * 2);
+        for (transfer_out_id, transfer_in_id) in pairs {
+            let (transfer_in, transfer_out) = self
+                .activity_repository
+                .link_transfer_activities(transfer_out_id, transfer_in_id)
+                .await?;
+            for activity in [transfer_in, transfer_out] {
+                Self::add_activity_to_event_sets(
+                    &activity,
+                    &mut account_ids,
+                    &mut asset_ids,
+                    &mut currencies,
+                );
+                linked.push(activity);
+            }
+        }
+
+        if !linked.is_empty() {
+            self.emit_activities_changed(
+                account_ids.into_iter().collect(),
+                asset_ids.into_iter().collect(),
+                currencies.into_iter().collect(),
+                Self::earliest_activity_at_utc(&linked),
+            );
+        }
+        Ok(linked.len() / 2)
     }
 
     async fn unlink_transfer_activities(

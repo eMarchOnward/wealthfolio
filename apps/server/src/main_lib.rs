@@ -1009,7 +1009,24 @@ async fn initialize_profile_state(
         cash_activity_service.clone(),
         activity_taxonomy_assignment_service.clone(),
         categorization_rules_service.clone(),
-    ));
+    )
+    .with_platform_services(wealthfolio_agent_tools::AgentPlatformServices {
+        timezone: timezone.clone(),
+        domain_event_sink: domain_event_sink.clone(),
+        snapshot_service: snapshot_service.clone(),
+        fx_service: fx_service.clone(),
+        allocation_target_service: allocation_target_service.clone(),
+        drift_service: drift_service.clone(),
+        rebalance_service: rebalance_service.clone(),
+        alternative_asset_service: alternative_asset_service.clone(),
+        cash_activity_service: cash_activity_service.clone(),
+        categorization_rules_service: categorization_rules_service.clone(),
+        spending_settings_service: spending_settings_service.clone(),
+        events_service: events_service.clone(),
+        budget_service: budget_service.clone(),
+        spending_analytics_service: spending_analytics_service.clone(),
+        spending_insight_service: spending_insight_service.clone(),
+    }));
     let agent_environment: Arc<dyn wealthfolio_agent_tools::AgentEnvironment> =
         ai_environment.clone();
     let ai_chat_service = Arc::new(ChatService::new(ai_environment, ChatConfig::default()));

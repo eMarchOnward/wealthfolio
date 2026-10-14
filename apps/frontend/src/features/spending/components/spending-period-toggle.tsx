@@ -25,7 +25,10 @@ import { AnimatedToggleGroup, useIsMobile } from "@wealthfolio/ui";
 import { SpendingDatePicker } from "./spending-date-picker";
 import { REPORTS_PERIODS, type ReportsPeriod } from "../lib/reports-period";
 
-function useSpendingPeriodLabels(): Record<ReportsPeriod, ReactNode> {
+/** Reports periods plus the dashboard-only ten-year view. */
+export type SpendingPeriodCode = ReportsPeriod | "10Y";
+
+function useSpendingPeriodLabels(): Record<SpendingPeriodCode, ReactNode> {
   const { t } = useTranslation();
   return useMemo(
     () => ({
@@ -45,14 +48,17 @@ function useSpendingPeriodLabels(): Record<ReportsPeriod, ReactNode> {
       "6M": "6M",
       YTD: "YTD",
       "1Y": "1Y",
+      "10Y": "10Y",
     }),
     [t],
   );
 }
 
-interface SpendingPeriodToggleProps {
-  value: ReportsPeriod | null;
-  onValueChange: (next: ReportsPeriod) => void;
+interface SpendingPeriodToggleProps<P extends SpendingPeriodCode> {
+  value: P | null;
+  onValueChange: (next: P) => void;
+  /** Periods offered; defaults to the reports periods. */
+  periods?: readonly P[];
   /** Visual variant on `AnimatedToggleGroup`. Default mirrors prior call sites. */
   variant?: "default" | "secondary";
   /** Size pass-through. Default "xs" matches the prior insights placement. */
@@ -60,19 +66,20 @@ interface SpendingPeriodToggleProps {
   className?: string;
 }
 
-export function SpendingPeriodToggle({
+export function SpendingPeriodToggle<P extends SpendingPeriodCode = ReportsPeriod>({
   value,
   onValueChange,
+  periods = REPORTS_PERIODS as readonly SpendingPeriodCode[] as readonly P[],
   variant = "secondary",
   size = "xs",
   className,
-}: SpendingPeriodToggleProps) {
+}: SpendingPeriodToggleProps<P>) {
   const labels = useSpendingPeriodLabels();
   return (
-    <AnimatedToggleGroup
+    <AnimatedToggleGroup<P>
       variant={variant}
       size={size}
-      items={REPORTS_PERIODS.map((p) => ({ value: p, label: labels[p] }))}
+      items={periods.map((p) => ({ value: p, label: labels[p] }))}
       value={value}
       onValueChange={onValueChange}
       className={className}
@@ -80,9 +87,10 @@ export function SpendingPeriodToggle({
   );
 }
 
-interface SpendingPeriodSelectorProps {
-  value: ReportsPeriod | null;
-  onValueChange: (next: ReportsPeriod) => void;
+interface SpendingPeriodSelectorProps<P extends SpendingPeriodCode> {
+  value: P | null;
+  onValueChange: (next: P) => void;
+  periods?: readonly P[];
   customMonth: string | null;
   customRange?: DateRange;
   maxMonth: string;
@@ -92,9 +100,10 @@ interface SpendingPeriodSelectorProps {
   className?: string;
 }
 
-export function SpendingPeriodSelector({
+export function SpendingPeriodSelector<P extends SpendingPeriodCode = ReportsPeriod>({
   value,
   onValueChange,
+  periods,
   customMonth,
   customRange,
   maxMonth,
@@ -102,7 +111,7 @@ export function SpendingPeriodSelector({
   onCustomRangeChange,
   isLoading,
   className,
-}: SpendingPeriodSelectorProps) {
+}: SpendingPeriodSelectorProps<P>) {
   const isMobile = useIsMobile();
 
   return (
@@ -116,6 +125,7 @@ export function SpendingPeriodSelector({
       <SpendingPeriodToggle
         value={value}
         onValueChange={onValueChange}
+        periods={periods}
         size={isMobile ? "compact" : "sm"}
         variant="default"
         className="min-w-0 bg-transparent"

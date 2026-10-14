@@ -17,6 +17,7 @@ import { buildClientConfig, STANDARD_PRESET_ID } from "../mcp-client-config";
 import {
   applyScopeDependencies,
   READ_SCOPES,
+  requiredBy,
   scopeDescription,
   scopeLabel,
   SCOPES,
@@ -147,15 +148,11 @@ export function PatCreateDialog({
     const checked = selectedScopes.includes(scope.key);
     const label = scopeLabel(t, scope.key);
     const description = scopeDescription(t, scope.key);
-    const lockedByMarketData =
-      scope.key === "holdings:read" && selectedScopes.includes("market-data:write");
-    const locked =
-      lockedByMarketData ||
-      (scope.key === "activities:draft" && selectedScopes.includes("activities:write")) ||
-      (scope.key === "classification:suggest" && selectedScopes.includes("classification:write"));
-    const lockedTitle = lockedByMarketData
-      ? t("settings:agentAccess.scope_locked_market_data_title")
-      : t("settings:agentAccess.scope_locked_title");
+    const dependent = requiredBy(scope.key, selectedScopes);
+    const locked = dependent !== undefined;
+    const lockedTitle = dependent
+      ? t("settings:agentAccess.scope_locked_by_title", { label: scopeLabel(t, dependent) })
+      : "";
     return (
       <button
         key={scope.key}

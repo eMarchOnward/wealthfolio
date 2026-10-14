@@ -1,4 +1,6 @@
 import type { ImportMappingData, ImportTemplateScope } from "@/lib/types";
+import { addBankOfAmericaTypeColumn } from "../utils/bank-of-america-adjustments";
+import { adaptFidelityNetBenefitsExport } from "../utils/fidelity-adjustments";
 import type {
   DraftActivity,
   ImportAction,
@@ -35,9 +37,15 @@ export function setParseConfig(config: Partial<ParseConfig>): ImportAction {
 
 /**
  * Set parsed CSV data (headers and rows).
+ * Bank of America exports get a derived "Type" column (see bank-of-america-adjustments);
+ * Fidelity NetBenefits exports get symbols, prices and deposits (see fidelity-adjustments).
  */
 export function setParsedData(headers: string[], rows: string[][]): ImportAction {
-  return { type: "SET_PARSED_DATA", payload: { headers, rows } };
+  const fidelity = adaptFidelityNetBenefitsExport(headers, rows);
+  return {
+    type: "SET_PARSED_DATA",
+    payload: addBankOfAmericaTypeColumn(fidelity.headers, fidelity.rows),
+  };
 }
 
 /**

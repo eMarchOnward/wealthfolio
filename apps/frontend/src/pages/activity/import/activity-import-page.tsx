@@ -27,6 +27,11 @@ import {
 } from "./context";
 import { createDraftActivities } from "./utils/draft-utils";
 import { createDefaultActivityMapping } from "./utils/default-activity-template";
+import { applyVanguardAdjustments, VANGUARD_TEMPLATE_ID } from "./utils/vanguard-adjustments";
+import {
+  applyBankOfAmericaAdjustments,
+  BANK_OF_AMERICA_TEMPLATE_ID,
+} from "./utils/bank-of-america-adjustments";
 
 // Components
 import { CancelConfirmationDialog } from "./components/cancel-confirmation-dialog";
@@ -514,7 +519,7 @@ function ImportWizardContent() {
         const accountTypeById = new Map<string, string>(
           (accounts ?? []).map((account) => [account.id, account.accountType]),
         );
-        const drafts = createDraftActivities(
+        const mappedDrafts = createDraftActivities(
           state.parsedRows,
           state.headers,
           {
@@ -537,6 +542,12 @@ function ImportWizardContent() {
           accountTypeById,
           { importProfile },
         );
+        const drafts =
+          state.selectedTemplateId === VANGUARD_TEMPLATE_ID
+            ? applyVanguardAdjustments(mappedDrafts, state.headers, accountTypeById)
+            : state.selectedTemplateId === BANK_OF_AMERICA_TEMPLATE_ID
+              ? applyBankOfAmericaAdjustments(mappedDrafts)
+              : mappedDrafts;
         dispatch(setDraftActivities(drafts));
         dispatch({ type: "SET_ASSET_PREVIEW_ITEMS", payload: [] });
         dispatch({ type: "CLEAR_PENDING_IMPORT_ASSETS" });
@@ -589,6 +600,7 @@ function ImportWizardContent() {
     state.parseConfig,
     state.draftActivities,
     state.draftRevision,
+    state.selectedTemplateId,
     accounts,
     isHoldingsMode,
     importProfile,

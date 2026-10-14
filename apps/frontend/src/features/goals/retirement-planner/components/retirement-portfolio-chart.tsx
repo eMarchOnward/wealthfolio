@@ -12,7 +12,7 @@ import {
 } from "recharts";
 import type { ChartValueMode } from "./value-mode-toggle";
 
-export type PlannerMode = "fire" | "traditional";
+export type PlannerMode = "fire" | "traditional" | "optimized";
 
 export interface ChartPoint {
   label: string; // category axis for reliable ReferenceLine

@@ -270,7 +270,9 @@
       "return_before_hint": "Rentabilidad anual supuesta durante el ahorro, antes de comisiones.",
       "return_during_hint": "Rentabilidad anual supuesta tras comenzar los retiros, antes de comisiones.",
       "annual_fee_hint": "Comisiones anuales estimadas de la cartera.",
-      "inflation_hint": "Aumento anual supuesto de los precios."
+      "inflation_hint": "Aumento anual supuesto de los precios.",
+      "tax_optimized": "Optimizado fiscalmente",
+      "mode_change_optimized": "Tu edad de jubilación pasa a ser una fecha de inicio fija, y la pestaña Plan fiscal calcula el plan de retiros optimizado fiscalmente."
     },
     "spending": {
       "kicker": "Gasto",
@@ -468,7 +470,9 @@
     "target_date": "Fecha objetivo",
     "funding_hint": "Podrás elegir las cuentas de financiación y las aportaciones mensuales tras la creación.",
     "creating": "Creando...",
-    "create_goal_button": "Crear objetivo"
+    "create_goal_button": "Crear objetivo",
+    "planner_tax_optimized": "Optimizado fiscalmente",
+    "planner_tax_optimized_hint": "Encuentra el orden de retiros, las conversiones Roth y la edad de cobro que minimizan los impuestos de por vida (EE. UU.)"
   },
   "guide": {
     "title": "Guía de jubilación",
@@ -595,7 +599,8 @@
     "tax_bucket": {
       "taxable": "Imponible",
       "tax_deferred": "Con impuestos diferidos",
-      "tax_free": "Libre de impuestos"
+      "tax_free": "Libre de impuestos",
+      "hsa": "HSA"
     }
   },
   "value_mode": {
@@ -931,6 +936,120 @@
         "label": "Caída temprana del mercado",
         "description": "Se modela una caída del mercado del 30% en el primer año de jubilación."
       }
+    }
+  },
+  "tax_plan": {
+    "title": "Plan de jubilación optimizado fiscalmente",
+    "description": "Calcula de qué cuentas retirar, cuándo convertir a Roth y cuándo cobrar la Seguridad Social para minimizar los impuestos federales de EE. UU. de por vida. Usa tu plan guardado y las cuentas del objetivo.",
+    "run": "Optimizar",
+    "rerun": "Volver a optimizar",
+    "running": "Optimizando… puede tardar un minuto",
+    "failed": "No se pudo ejecutar el optimizador: {{message}}",
+    "stale": "El plan cambió desde este resultado. Vuelve a optimizar para actualizarlo.",
+    "infeasible": "Ningún plan puede financiar estos gastos con estas cuentas.",
+    "approximate": "El solucionador alcanzó su límite de tiempo, así que este plan es casi óptimo, no óptimo demostrado.",
+    "chart": {
+      "age_label": "Edad {{age}}",
+      "sources": "De dónde sale el dinero de cada año",
+      "balances": "Saldos por tratamiento fiscal",
+      "conversions": "Conversiones Roth, impuestos y Medicare"
+    },
+    "series": {
+      "wages": "Salario",
+      "social_security": "Seguridad Social",
+      "other_income": "Otros ingresos",
+      "taxable": "Gravable",
+      "tax_deferred": "Impuestos diferidos",
+      "roth": "Roth",
+      "spending": "Gasto",
+      "roth_conversion": "Conversión Roth",
+      "taxes": "Impuesto federal",
+      "medicare": "Medicare",
+      "saved": "Ahorrado",
+      "hsa": "HSA",
+      "gain_harvest": "Ganancias realizadas",
+      "state_tax": "Impuesto estatal",
+      "employer_match": "Aportación del empleador",
+      "debt_payment": "Pagos de deuda"
+    },
+    "summary": {
+      "sustainable_spending": "Gasto sostenible",
+      "per_year_today": "Por año, en dinero de hoy",
+      "estate": "Herencia después de impuestos",
+      "estate_hint": "Para los herederos al final del plan, en dinero de hoy",
+      "lifetime_tax": "Impuesto federal de por vida",
+      "lifetime_medicare": "Más {{amount}} de primas de Medicare",
+      "roth_conversions": "Conversiones Roth totales",
+      "claim_age": "Cobro de la Seguridad Social",
+      "claim_age_value": "Edad {{age}} + {{months}} m"
+    },
+    "table": {
+      "title": "Plan anual (dinero de hoy)",
+      "year": "Año",
+      "age": "Edad",
+      "working": "Trabajando"
+    },
+    "settings": {
+      "title": "Ajustes del optimizador",
+      "objective": "Objetivo",
+      "objective_max_bequest": "Cubrir mis gastos y dejar lo máximo",
+      "objective_max_spending": "Gastar lo máximo posible",
+      "bequest_floor": "Dejar al menos (después de impuestos)",
+      "social_security_stream": "Fuente de ingresos de la Seguridad Social",
+      "optimize_claim_age": "Dejar que el optimizador elija la edad de cobro",
+      "pre_tax_contribution": "401(k) antes de impuestos por año",
+      "employer_contribution": "Aportación del empleador por año",
+      "roth_contribution": "Aportación Roth por año",
+      "taxable_contribution": "Inversión gravable por año",
+      "max_roth_conversion": "Límite anual de conversión Roth",
+      "heirs_tax_rate": "Tipo impositivo de herederos sobre IRA (%)",
+      "prior_magi": "MAGI reciente",
+      "prior_magi_help": "AGI modificado de los dos últimos años (fija los recargos de Medicare); mejor tomarlo de tu declaración. Vacío usa {{amount}} (salario menos aportaciones antes de impuestos).",
+      "state": "Impuesto estatal sobre la renta",
+      "no_state": "Ninguno",
+      "state_va": "Virginia",
+      "aca_benchmark_premium": "Prima de referencia ACA por año",
+      "hsa_contribution": "Aportación HSA por año",
+      "other_medical_expenses": "Otros gastos médicos por año",
+      "rule_of_55_balance": "Regla de los 55: saldo del 401(k)",
+      "sepp_start_age": "Pagos 72(t): edad de inicio",
+      "sepp_annual_payment": "Pago anual 72(t)",
+      "harvest_gains": "Realizar ganancias en años de impuestos bajos",
+      "optimize_contributions": "Optimizar mis aportaciones mientras trabajo",
+      "match_rate": "Tasa de aportación del empleador (%)",
+      "match_cap": "Hasta (% del salario)",
+      "hsa_eligible": "Plan de salud con deducible alto (HSA permitida)",
+      "roth_401k_available": "El 401(k) ofrece Roth",
+      "debts": "Deudas",
+      "add_debt": "Añadir deuda",
+      "remove_debt": "Quitar",
+      "debt_label": "Nombre",
+      "debt_balance": "Saldo",
+      "debt_rate": "Interés (%)",
+      "debt_payment": "Pago por año",
+      "enter_social_security": "Introducir importes abajo",
+      "social_security_monthly": "Seguridad Social al mes",
+      "social_security_claim_age": "Edad de cobro de la Seguridad Social",
+      "optimize_claim_age_needs_benefit": "Primero introduce una prestación de la Seguridad Social.",
+      "salary": "Salario anual (bruto)",
+      "salary_growth": "Crecimiento salarial anual (%)"
+    },
+    "baseline": {
+      "title": "Valor de optimizar",
+      "description": "Comparado con la regla habitual: gastar primero las cuentas gravables, luego las de impuestos diferidos y después Roth, sin conversiones Roth y con la Seguridad Social a la edad prevista.",
+      "infeasible": "La regla habitual no puede financiar este plan; el orden optimizado sí.",
+      "extra_estate": "Herencia mayor después de impuestos",
+      "extra_spending": "Más gasto por año",
+      "versus": "Regla habitual: {{amount}}"
+    },
+    "success": {
+      "title": "Probabilidad de éxito",
+      "description": "Recalcula el plan con cada secuencia histórica del mercado desde 1928, o con años remuestreados, con tu gasto previsto.",
+      "run_historical": "Histórico (desde 1928)",
+      "running": "Resolviendo cada trayectoria… puede tardar unos minutos.",
+      "summary": "{{funded}} de {{paths}} trayectorias financian {{spending}} al año.",
+      "estates": "Herencia (percentil 10 / 50 / 90): {{p10}} / {{p50}} / {{p90}}",
+      "failed_years": "Se agotó al empezar en: {{years}}"
     }
   }
 }

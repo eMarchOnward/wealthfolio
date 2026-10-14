@@ -280,6 +280,13 @@ export {
 // FIRE Planner (desktop-only feature)
 export {
   calculateRetirementProjection,
+  getRetirementTaxPlanAccounts,
+  optimizeRetirementTaxPlan,
+  runRetirementTaxSuccess,
+  runRetirementTaxSafeSpending,
+  runRetirementTaxChoiceCosts,
+  runRetirementTaxStressTests,
+  runRetirementTaxConversionRegret,
   runRetirementDecisionSensitivityMap,
   runRetirementMonteCarlo,
   runRetirementScenarioAnalysis,

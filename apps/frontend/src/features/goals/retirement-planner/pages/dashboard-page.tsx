@@ -194,7 +194,7 @@ export default function DashboardPage({
   const numberFormatting = useNumberFormatting();
   const { t } = useTranslation();
   const L = modeLabel(plannerMode, t);
-  const isTraditionalMode = plannerMode === "traditional";
+  const isTraditionalMode = plannerMode !== "fire";
   const { totalValue, error } = portfolioData;
   const portfolioNow = retirementOverview?.portfolioNow ?? totalValue;
   const currency = plan.currency;
@@ -460,7 +460,8 @@ export default function DashboardPage({
   const readiness = deriveRetirementReadiness(
     {
       overview: retirementOverview,
-      plannerMode,
+      // The tax-optimized style retires at the target age, like Traditional.
+      plannerMode: plannerMode === "fire" ? "fire" : "traditional",
       isFinanciallyIndependent,
       effectiveFiAge,
       desiredAge: plan.personal.targetRetirementAge,

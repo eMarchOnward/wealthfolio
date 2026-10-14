@@ -265,7 +265,9 @@
       "return_before_hint": "Angenommene jährliche Rendite während des Sparens, vor Anlagegebühren.",
       "return_during_hint": "Angenommene jährliche Rendite nach Beginn der Entnahmen, vor Anlagegebühren.",
       "annual_fee_hint": "Geschätzte jährliche Portfoliogebühren.",
-      "inflation_hint": "Angenommener jährlicher Preisanstieg."
+      "inflation_hint": "Angenommener jährlicher Preisanstieg.",
+      "tax_optimized": "Steueroptimiert",
+      "mode_change_optimized": "Ihr Rentenalter wird zum festen Rentenbeginn, und der Tab Steuerplan berechnet den steueroptimierten Entnahmeplan."
     },
     "spending": {
       "kicker": "Ausgaben",
@@ -463,7 +465,9 @@
     "target_date": "Zieldatum",
     "funding_hint": "Sie können Finanzierungskonten und monatliche Beiträge nach der Erstellung auswählen.",
     "creating": "Wird erstellt...",
-    "create_goal_button": "Ziel erstellen"
+    "create_goal_button": "Ziel erstellen",
+    "planner_tax_optimized": "Steueroptimiert",
+    "planner_tax_optimized_hint": "Entnahmereihenfolge, Roth-Umwandlungen und Rentenbeginn mit der geringsten Lebenssteuerlast finden (USA)"
   },
   "guide": {
     "title": "Ruhestandsleitfaden",
@@ -589,7 +593,8 @@
     "tax_bucket": {
       "taxable": "Steuerpflichtig",
       "tax_deferred": "Steuergestundet",
-      "tax_free": "Steuerfrei"
+      "tax_free": "Steuerfrei",
+      "hsa": "HSA"
     }
   },
   "value_mode": {
@@ -920,6 +925,120 @@
         "label": "Früher Markteinbruch",
         "description": "Im ersten Ruhestandsjahr wird ein Marktrückgang von 30 % modelliert."
       }
+    }
+  },
+  "tax_plan": {
+    "title": "Steueroptimierter Ruhestandsplan",
+    "description": "Berechnet, aus welchen Konten entnommen wird, wann in Roth umgewandelt und wann die Sozialversicherung bezogen wird, um die US-Bundessteuern über die Lebenszeit zu minimieren. Verwendet Ihren gespeicherten Plan und die Konten des Ziels.",
+    "run": "Optimieren",
+    "rerun": "Erneut optimieren",
+    "running": "Optimierung läuft… das kann eine Minute dauern",
+    "failed": "Der Optimierer konnte nicht laufen: {{message}}",
+    "stale": "Der Plan hat sich seit diesem Ergebnis geändert. Erneut optimieren, um es zu aktualisieren.",
+    "infeasible": "Kein Plan kann diese Ausgaben mit diesen Konten finanzieren.",
+    "approximate": "Der Solver hat sein Zeitlimit erreicht; dieser Plan ist nahezu, aber nicht nachweislich optimal.",
+    "chart": {
+      "age_label": "Alter {{age}}",
+      "sources": "Woher das Geld jedes Jahres kommt",
+      "balances": "Salden nach steuerlicher Behandlung",
+      "conversions": "Roth-Umwandlungen, Steuern und Medicare"
+    },
+    "series": {
+      "wages": "Löhne",
+      "social_security": "Sozialversicherung",
+      "other_income": "Sonstiges Einkommen",
+      "taxable": "Steuerpflichtig",
+      "tax_deferred": "Steueraufgeschoben",
+      "roth": "Roth",
+      "spending": "Ausgaben",
+      "roth_conversion": "Roth-Umwandlung",
+      "taxes": "Bundessteuer",
+      "medicare": "Medicare",
+      "saved": "Gespart",
+      "hsa": "HSA",
+      "gain_harvest": "Realisierte Gewinne",
+      "state_tax": "Landessteuer",
+      "employer_match": "Arbeitgeberzuschuss",
+      "debt_payment": "Schuldentilgung"
+    },
+    "summary": {
+      "sustainable_spending": "Nachhaltige Ausgaben",
+      "per_year_today": "Pro Jahr, in heutigem Geld",
+      "estate": "Nachlass nach Steuern",
+      "estate_hint": "Am Planende an die Erben, in heutigem Geld",
+      "lifetime_tax": "Bundessteuer über die Lebenszeit",
+      "lifetime_medicare": "Zuzüglich {{amount}} Medicare-Beiträge",
+      "roth_conversions": "Roth-Umwandlungen gesamt",
+      "claim_age": "Beginn der Sozialversicherungsrente",
+      "claim_age_value": "Alter {{age}} + {{months}} Mon."
+    },
+    "table": {
+      "title": "Jährlicher Fahrplan (heutiges Geld)",
+      "year": "Jahr",
+      "age": "Alter",
+      "working": "Erwerbstätig"
+    },
+    "settings": {
+      "title": "Optimierer-Einstellungen",
+      "objective": "Ziel",
+      "objective_max_bequest": "Ausgaben decken, am meisten hinterlassen",
+      "objective_max_spending": "So viel wie möglich ausgeben",
+      "bequest_floor": "Mindestens hinterlassen (nach Steuern)",
+      "social_security_stream": "Einkommensquelle Sozialversicherung",
+      "optimize_claim_age": "Bezugsalter vom Optimierer wählen lassen",
+      "pre_tax_contribution": "Vorsteuer-401(k) pro Jahr",
+      "employer_contribution": "Arbeitgeberbeitrag pro Jahr",
+      "roth_contribution": "Roth-Beitrag pro Jahr",
+      "taxable_contribution": "Steuerpflichtige Anlage pro Jahr",
+      "max_roth_conversion": "Obergrenze Roth-Umwandlung pro Jahr",
+      "heirs_tax_rate": "Steuersatz der Erben auf IRAs (%)",
+      "prior_magi": "Aktuelles MAGI",
+      "prior_magi_help": "Modifiziertes AGI der letzten zwei Jahre (bestimmt Medicare-Zuschläge); am besten aus der Steuererklärung. Leer verwendet {{amount}} (Gehalt abzüglich Vorsteuerbeiträge).",
+      "state": "Einkommensteuer des Bundesstaats",
+      "no_state": "Keine",
+      "state_va": "Virginia",
+      "aca_benchmark_premium": "ACA-Referenzprämie pro Jahr",
+      "hsa_contribution": "HSA-Beitrag pro Jahr",
+      "other_medical_expenses": "Sonstige Gesundheitskosten pro Jahr",
+      "rule_of_55_balance": "Regel 55: 401(k)-Guthaben",
+      "sepp_start_age": "72(t)-Zahlungen: Startalter",
+      "sepp_annual_payment": "72(t)-Jahreszahlung",
+      "harvest_gains": "Gewinne in Jahren mit niedriger Steuer realisieren",
+      "optimize_contributions": "Beiträge während der Erwerbstätigkeit optimieren",
+      "match_rate": "Arbeitgeberzuschuss (%)",
+      "match_cap": "Bezuschusst bis (% des Gehalts)",
+      "hsa_eligible": "Krankenversicherung mit hohem Selbstbehalt (HSA erlaubt)",
+      "roth_401k_available": "401(k) bietet Roth",
+      "debts": "Schulden",
+      "add_debt": "Schuld hinzufügen",
+      "remove_debt": "Entfernen",
+      "debt_label": "Name",
+      "debt_balance": "Saldo",
+      "debt_rate": "Zins (%)",
+      "debt_payment": "Rate pro Jahr",
+      "enter_social_security": "Beträge unten eingeben",
+      "social_security_monthly": "Sozialversicherungsrente pro Monat",
+      "social_security_claim_age": "Bezugsalter Sozialversicherung",
+      "optimize_claim_age_needs_benefit": "Geben Sie zuerst eine Sozialversicherungsrente ein.",
+      "salary": "Jahresgehalt (brutto)",
+      "salary_growth": "Gehaltssteigerung pro Jahr (%)"
+    },
+    "baseline": {
+      "title": "Wert der Optimierung",
+      "description": "Im Vergleich zur üblichen Faustregel: zuerst steuerpflichtige Konten, dann steueraufgeschobene, dann Roth, ohne Roth-Umwandlungen und mit der Sozialversicherung im geplanten Alter.",
+      "infeasible": "Die übliche Faustregel kann diesen Plan gar nicht finanzieren; die optimierte Reihenfolge schon.",
+      "extra_estate": "Höherer Nachlass nach Steuern",
+      "extra_spending": "Mehr Ausgaben pro Jahr",
+      "versus": "Faustregel: {{amount}}"
+    },
+    "success": {
+      "title": "Erfolgswahrscheinlichkeit",
+      "description": "Berechnet den Plan mit jeder historischen Marktfolge seit 1928 oder mit neu gezogenen Jahren bei Ihren geplanten Ausgaben neu.",
+      "run_historical": "Historisch (seit 1928)",
+      "running": "Alle Pfade werden berechnet… das kann einige Minuten dauern.",
+      "summary": "{{funded}} von {{paths}} Pfaden finanzieren {{spending}} pro Jahr.",
+      "estates": "Hinterlassenes Vermögen (10./50./90. Perzentil): {{p10}} / {{p50}} / {{p90}}",
+      "failed_years": "Reichte nicht bei Start in: {{years}}"
     }
   }
 }

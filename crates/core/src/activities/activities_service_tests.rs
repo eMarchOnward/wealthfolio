@@ -1547,10 +1547,27 @@ pub(crate) mod tests {
 
         async fn link_transfer_activities(
             &self,
-            _activity_a_id: String,
-            _activity_b_id: String,
+            activity_a_id: String,
+            activity_b_id: String,
         ) -> Result<(Activity, Activity)> {
-            unimplemented!()
+            let mut activities = self.activities.lock().unwrap();
+            let group_id = format!("link-{activity_a_id}-{activity_b_id}");
+            let mut linked = Vec::new();
+            for activity in activities
+                .iter_mut()
+                .filter(|activity| activity.id == activity_a_id || activity.id == activity_b_id)
+            {
+                activity.source_group_id = Some(group_id.clone());
+                activity.metadata = Some(json!({ "flow": { "is_external": false } }));
+                linked.push(activity.clone());
+            }
+            linked.sort_by_key(|activity| activity.activity_type != "TRANSFER_IN");
+            match <[Activity; 2]>::try_from(linked) {
+                Ok([transfer_in, transfer_out]) => Ok((transfer_in, transfer_out)),
+                Err(_) => Err(crate::errors::Error::Unexpected(
+                    "link requires two activities".to_string(),
+                )),
+            }
         }
 
         async fn unlink_transfer_activities(
@@ -11444,6 +11461,141 @@ pub(crate) mod tests {
             assert_eq!(linked.counterpart_id, counterpart);
             assert_eq!(linked.link_state, TransferLinkState::Linked);
         }
+    }
+
+    #[tokio::test]
+    async fn link_exact_transfer_matches_links_only_unambiguous_same_day_pairs() {
+        let account_service = Arc::new(MockAccountService::new());
+        account_service.add_account(create_test_account("acc-a", "USD"));
+        account_service.add_account(create_test_account("acc-b", "USD"));
+        let activity_repository = Arc::new(MockActivityRepository::new());
+        let transfer = |id, account_id, activity_type, date, amount| {
+            create_cash_transfer_activity(id, account_id, activity_type, date, amount, "USD")
+        };
+        let mut orphan = transfer(
+            "orphan-out",
+            "acc-a",
+            "TRANSFER_OUT",
+            "2024-05-01T00:00:00Z",
+            dec!(70),
+        );
+        orphan.source_group_id = Some("orphan-group".to_string());
+        for activity in [
+            // Exact: the only same-day match both ways.
+            transfer(
+                "out-1",
+                "acc-a",
+                "TRANSFER_OUT",
+                "2024-01-15T00:00:00Z",
+                dec!(100),
+            ),
+            transfer(
+                "in-1",
+                "acc-b",
+                "TRANSFER_IN",
+                "2024-01-15T00:00:00Z",
+                dec!(100),
+            ),
+            // Ambiguous: two same-day candidates.
+            transfer(
+                "out-2",
+                "acc-a",
+                "TRANSFER_OUT",
+                "2024-02-01T00:00:00Z",
+                dec!(200),
+            ),
+            transfer(
+                "in-2a",
+                "acc-b",
+                "TRANSFER_IN",
+                "2024-02-01T00:00:00Z",
+                dec!(200),
+            ),
+            transfer(
+                "in-2b",
+                "acc-b",
+                "TRANSFER_IN",
+                "2024-02-01T00:00:00Z",
+                dec!(200),
+            ),
+            // Dates differ.
+            transfer(
+                "out-3",
+                "acc-a",
+                "TRANSFER_OUT",
+                "2024-03-01T00:00:00Z",
+                dec!(300),
+            ),
+            transfer(
+                "in-3",
+                "acc-b",
+                "TRANSFER_IN",
+                "2024-03-02T00:00:00Z",
+                dec!(300),
+            ),
+            // Amounts differ.
+            transfer(
+                "out-4",
+                "acc-a",
+                "TRANSFER_OUT",
+                "2024-04-01T00:00:00Z",
+                dec!(400),
+            ),
+            transfer(
+                "in-4",
+                "acc-b",
+                "TRANSFER_IN",
+                "2024-04-01T00:00:00Z",
+                dec!(401),
+            ),
+            // Left in a broken link group.
+            orphan,
+            transfer(
+                "in-5",
+                "acc-b",
+                "TRANSFER_IN",
+                "2024-05-01T00:00:00Z",
+                dec!(70),
+            ),
+        ] {
+            activity_repository.add_activity(activity);
+        }
+        let service = ActivityService::new(
+            activity_repository.clone(),
+            account_service,
+            Arc::new(MockAssetService::new()),
+            Arc::new(MockFxService::new()),
+            Arc::new(MockQuoteService),
+        );
+
+        assert_eq!(
+            service.link_exact_transfer_matches().await.expect("link"),
+            1
+        );
+
+        let activities = activity_repository
+            .get_activities_including_archived_accounts()
+            .expect("activities");
+        let group = |id: &str| {
+            activities
+                .iter()
+                .find(|activity| activity.id == id)
+                .and_then(|activity| activity.source_group_id.clone())
+        };
+        assert!(group("out-1").is_some());
+        assert_eq!(group("out-1"), group("in-1"));
+        for id in [
+            "out-2", "in-2a", "in-2b", "out-3", "in-3", "out-4", "in-4", "in-5",
+        ] {
+            assert_eq!(group(id), None, "{id}");
+        }
+        assert_eq!(group("orphan-out").as_deref(), Some("orphan-group"));
+
+        // Nothing left to link on a second run.
+        assert_eq!(
+            service.link_exact_transfer_matches().await.expect("relink"),
+            0
+        );
     }
 
     #[test]

@@ -888,6 +888,8 @@
     "dailyAvg": "daily avg",
     "weeklyAvg": "weekly avg",
     "monthlyAvg": "monthly avg",
+    "yearlyAvg": "yearly avg",
+    "yearToDateBar": "{{year}} YTD",
     "noAccountsSelected": "No spending accounts selected.",
     "openSpendingSettings": "Open spending settings →",
     "uncategorizedReview": "Uncategorized — review",
@@ -903,6 +905,7 @@
     "interval6M": "past 6 months",
     "intervalYtd": "year to date",
     "interval1Y": "past year",
+    "interval10Y": "past 10 years",
     "plusMore_one": "+ {{count}} more",
     "plusMore_other": "+ {{count}} more"
   },

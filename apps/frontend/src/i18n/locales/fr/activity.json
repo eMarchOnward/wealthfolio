@@ -306,6 +306,7 @@
   "page": {
     "import_from_csv": "Importer depuis un CSV",
     "transfer_holdings": "Transférer des positions",
+    "link_matching_transfers": "Lier les transferts correspondants",
     "add_personal_asset": "Ajouter un actif personnel",
     "add_activities": "Ajouter des activités",
     "ask_ai_categorize": "Demander à l'IA de catégoriser",

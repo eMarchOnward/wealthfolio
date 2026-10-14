@@ -2,6 +2,9 @@ import { useSettingsContext } from "@/lib/settings-provider";
 import { formatZonedDateKey } from "@/features/spending/lib/timezone";
 import { parseLocalDate } from "@/lib/utils";
 import { GoalFundingEditor } from "@/features/goals/components/goal-funding-editor";
+import { useGoals } from "@/features/goals/hooks/use-goals";
+import { Switch } from "@wealthfolio/ui/components/ui/switch";
+import { HomeSaleFields } from "./tax-optimizer-settings";
 import {
   DEFAULT_RETURN_SLIDER_MAX,
   RATE_SLIDER_INCREMENT,
@@ -21,6 +24,11 @@ import {
   CardHeader,
   CardTitle,
   Input,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
   useAmountFormatting,
   useNumberFormatting,
 } from "@wealthfolio/ui";
@@ -37,6 +45,7 @@ import {
   type PlannerMode,
 } from "../lib/dashboard-math";
 import {
+  activeExpenseItems,
   createExpenseItem,
   expenseAgeRangeLabel,
   expenseItems,
@@ -115,11 +124,14 @@ function SidebarMonthlyRow({
   meta,
   amount,
   currency,
+  yearly = false,
 }: {
   label: string;
   meta?: string;
+  /** Per month; shown per year when `yearly`. */
   amount: number;
   currency: string;
+  yearly?: boolean;
 }) {
   const formatting = useAmountFormatting();
   const { t } = useTranslation();
@@ -131,16 +143,28 @@ function SidebarMonthlyRow({
       </div>
       <div className="whitespace-nowrap tabular-nums">
         <span className="text-foreground text-sm font-semibold">
-          {formatting.formatAmount(amount, currency)}
+          {formatting.formatAmount(yearly ? amount * 12 : amount, currency)}
         </span>
-        <span className="text-muted-foreground text-xs">{t("goals:save_up.per_month_suffix")}</span>
+        <span className="text-muted-foreground text-xs">
+          {yearly
+            ? t("goals:sidebar.spending.per_year_suffix")
+            : t("goals:save_up.per_month_suffix")}
+        </span>
       </div>
     </div>
   );
 }
 
-/** Sidebar totals row: uppercase tracked label on the left, amount + /mo on the right. */
-function SidebarTotalRow({ amount, currency }: { amount: number; currency: string }) {
+/** Sidebar totals row: uppercase tracked label on the left, amount + /mo (and /yr) on the right. */
+function SidebarTotalRow({
+  amount,
+  currency,
+  showYearly = false,
+}: {
+  amount: number;
+  currency: string;
+  showYearly?: boolean;
+}) {
   const formatting = useAmountFormatting();
   const { t } = useTranslation();
   return (
@@ -153,6 +177,12 @@ function SidebarTotalRow({ amount, currency }: { amount: number; currency: strin
           {formatting.formatAmount(amount, currency)}
         </span>
         <span className="text-muted-foreground text-xs">{t("goals:save_up.per_month_suffix")}</span>
+        {showYearly && (
+          <div className="text-muted-foreground text-right text-xs">
+            {formatting.formatAmount(amount * 12, currency)}
+            {t("goals:sidebar.spending.per_year_suffix")}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -318,6 +348,7 @@ function SidebarCard({
   kicker,
   title,
   editing,
+  hidden = false,
   onEdit,
   onSave,
   onCancel,
@@ -328,6 +359,8 @@ function SidebarCard({
   kicker?: string;
   title: string;
   editing: boolean;
+  /** Leaves the card out (a setting the planning style does not use). */
+  hidden?: boolean;
   onEdit: () => void;
   onSave: () => void;
   onCancel: () => void;
@@ -336,6 +369,7 @@ function SidebarCard({
   editContent: React.ReactNode;
 }) {
   const { t } = useTranslation();
+  if (hidden) return null;
   const renderEditActions = () => (
     <div className="flex items-center justify-end gap-1.5">
       <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={onCancel}>
@@ -420,6 +454,14 @@ export function SidebarConfigurator({
   const [expandedExpenseId, setExpandedExpenseId] = useState<string | null>(null);
   const [expandedIncomeId, setExpandedIncomeId] = useState<string | null>(null);
   const moneyPrefix = amountFormatting.formatCurrencySymbol(currency);
+  const { goals } = useGoals();
+  const homeGoals = useMemo(
+    () => goals.filter((goal) => goal.goalType === "home" && goal.statusLifecycle === "active"),
+    [goals],
+  );
+  // The link lives with the tax-optimized settings; every style reads it.
+  const homeGoalId = draft.taxOptimizer?.homeGoalId ?? null;
+  const linkedHome = homeGoals.find((goal) => goal.id === homeGoalId);
 
   const update = useCallback((updater: (d: RetirementPlan) => RetirementPlan) => {
     setDraft((prev) => updater(prev));
@@ -590,7 +632,11 @@ export function SidebarConfigurator({
         readContent={
           <div className="divide-border divide-y">
             <ConfigRow label={t("goals:sidebar.plan.plan_type")}>
-              {draftMode === "fire" ? "FIRE" : t("goals:sidebar.plan.traditional")}
+              {draftMode === "fire"
+                ? "FIRE"
+                : draftMode === "optimized"
+                  ? t("goals:sidebar.plan.tax_optimized")
+                  : t("goals:sidebar.plan.traditional")}
             </ConfigRow>
             <ConfigRow label={t("goals:sidebar.plan.current_age")}>
               {draft.personal.currentAge}
@@ -613,9 +659,12 @@ export function SidebarConfigurator({
             >
               {draft.personal.planningHorizonAge}
             </ConfigRow>
-            <ConfigRow label={t("goals:sidebar.plan.monthly_contribution_until_retirement")}>
-              {amountFormatting.formatAmount(draft.investment.monthlyContribution, currency)}
-            </ConfigRow>
+            {/* The tax-optimized plan takes contributions from its own settings. */}
+            {plannerMode !== "optimized" && (
+              <ConfigRow label={t("goals:sidebar.plan.monthly_contribution_until_retirement")}>
+                {amountFormatting.formatAmount(draft.investment.monthlyContribution, currency)}
+              </ConfigRow>
+            )}
           </div>
         }
         editContent={
@@ -634,6 +683,7 @@ export function SidebarConfigurator({
                   items={[
                     { value: "fire", label: "FIRE" },
                     { value: "traditional", label: t("goals:sidebar.plan.traditional") },
+                    { value: "optimized", label: t("goals:sidebar.plan.tax_optimized") },
                   ]}
                   size="xs"
                   rounded="md"
@@ -645,7 +695,9 @@ export function SidebarConfigurator({
                   {t("goals:sidebar.plan.mode_change_prefix")}{" "}
                   {draftMode === "traditional"
                     ? t("goals:sidebar.plan.mode_change_traditional")
-                    : t("goals:sidebar.plan.mode_change_fire")}
+                    : draftMode === "optimized"
+                      ? t("goals:sidebar.plan.mode_change_optimized")
+                      : t("goals:sidebar.plan.mode_change_fire")}
                 </p>
               )}
             </div>
@@ -722,19 +774,21 @@ export function SidebarConfigurator({
               step={1}
               format={(v) => String(Math.round(v))}
             />
-            <LeverRow
-              label={t("goals:sidebar.plan.monthly_contribution")}
-              hint={t("goals:sidebar.plan.monthly_contribution_hint")}
-              kind="money"
-              value={draft.investment.monthlyContribution}
-              onChange={(v) => setInvestment("monthlyContribution", v)}
-              min={0}
-              max={sliderMaxFor(draft.investment.monthlyContribution, 20000, 5000)}
-              step={100}
-              prefix={moneyPrefix}
-              format={(v) => String(Math.round(v))}
-              inputWidthClassName="w-56"
-            />
+            {draftMode !== "optimized" && (
+              <LeverRow
+                label={t("goals:sidebar.plan.monthly_contribution")}
+                hint={t("goals:sidebar.plan.monthly_contribution_hint")}
+                kind="money"
+                value={draft.investment.monthlyContribution}
+                onChange={(v) => setInvestment("monthlyContribution", v)}
+                min={0}
+                max={sliderMaxFor(draft.investment.monthlyContribution, 20000, 5000)}
+                step={100}
+                prefix={moneyPrefix}
+                format={(v) => String(Math.round(v))}
+                inputWidthClassName="w-56"
+              />
+            )}
             <LeverRow
               label={t("goals:sidebar.assumptions.return_before_retirement")}
               hint={t("goals:sidebar.plan.return_before_hint")}
@@ -828,13 +882,16 @@ export function SidebarConfigurator({
           const horizonAge = draft.personal.planningHorizonAge;
           const items = expenseItems(draft.expenses);
           const total = totalMonthlyExpenseAtAge(draft.expenses, retireAge);
+          const mustHave = activeExpenseItems(draft.expenses, retireAge)
+            .filter((item) => item.essential ?? true)
+            .reduce((sum, item) => sum + item.monthlyAmount, 0);
           if (items.length === 0) {
             return (
               <div className="space-y-2">
                 <p className="text-muted-foreground text-xs">
                   {t("goals:sidebar.spending.none_configured")}
                 </p>
-                <SidebarTotalRow amount={0} currency={currency} />
+                <SidebarTotalRow amount={0} currency={currency} showYearly />
               </div>
             );
           }
@@ -857,14 +914,24 @@ export function SidebarConfigurator({
                           }),
                         })
                       : undefined,
+                    it.endsAtHomePurchase
+                      ? t("goals:sidebar.spending.ends_at_purchase_meta")
+                      : undefined,
                   ]
                     .filter(Boolean)
                     .join(" · ")}
                   amount={it.monthlyAmount}
                   currency={currency}
+                  yearly={it.yearly}
                 />
               ))}
-              <SidebarTotalRow amount={total} currency={currency} />
+              <SidebarTotalRow amount={total} currency={currency} showYearly />
+              <p className="text-muted-foreground pt-2 text-[11px] leading-relaxed">
+                {t("goals:sidebar.spending.must_have_total", {
+                  amount: amountFormatting.formatAmount(mustHave, currency),
+                  age: retireAge,
+                })}
+              </p>
             </div>
           );
         })()}
@@ -915,9 +982,14 @@ export function SidebarConfigurator({
                         </span>
                       </span>
                       <span className="text-foreground shrink-0 text-sm font-semibold tabular-nums">
-                        {amountFormatting.formatAmount(item.monthlyAmount, currency)}
+                        {amountFormatting.formatAmount(
+                          item.yearly ? item.monthlyAmount * 12 : item.monthlyAmount,
+                          currency,
+                        )}
                         <span className="text-muted-foreground text-xs font-normal">
-                          {t("goals:save_up.per_month_suffix")}
+                          {item.yearly
+                            ? t("goals:sidebar.spending.per_year_suffix")
+                            : t("goals:save_up.per_month_suffix")}
                         </span>
                       </span>
                     </button>
@@ -941,18 +1013,47 @@ export function SidebarConfigurator({
                         placeholder={t("goals:sidebar.spending.name_placeholder")}
                         className="bg-muted/70 h-8 px-2 text-sm font-semibold shadow-none"
                       />
-                      <LeverRow
-                        label={t("goals:sidebar.spending.monthly_spending")}
-                        kind="money"
-                        value={item.monthlyAmount}
-                        onChange={(v) => updateExpenseItem(item.id, { monthlyAmount: v })}
-                        min={0}
-                        max={sliderMaxFor(item.monthlyAmount, 20000, 5000)}
-                        step={100}
-                        prefix={moneyPrefix}
-                        suffix={t("goals:save_up.per_month_suffix")}
-                        format={(v) => String(Math.round(v))}
-                      />
+                      <div className="flex justify-end">
+                        <AnimatedToggleGroup<"monthly" | "yearly">
+                          variant="secondary"
+                          size="xs"
+                          items={[
+                            { value: "monthly", label: t("goals:sidebar.spending.per_month") },
+                            { value: "yearly", label: t("goals:sidebar.spending.per_year") },
+                          ]}
+                          value={item.yearly ? "yearly" : "monthly"}
+                          onValueChange={(value) =>
+                            updateExpenseItem(item.id, { yearly: value === "yearly" || undefined })
+                          }
+                        />
+                      </div>
+                      {item.yearly ? (
+                        <LeverRow
+                          label={t("goals:sidebar.spending.yearly_spending")}
+                          kind="money"
+                          value={item.monthlyAmount * 12}
+                          onChange={(v) => updateExpenseItem(item.id, { monthlyAmount: v / 12 })}
+                          min={0}
+                          max={sliderMaxFor(item.monthlyAmount * 12, 240000, 60000)}
+                          step={500}
+                          prefix={moneyPrefix}
+                          suffix={t("goals:sidebar.spending.per_year_suffix")}
+                          format={(v) => String(Math.round(v))}
+                        />
+                      ) : (
+                        <LeverRow
+                          label={t("goals:sidebar.spending.monthly_spending")}
+                          kind="money"
+                          value={item.monthlyAmount}
+                          onChange={(v) => updateExpenseItem(item.id, { monthlyAmount: v })}
+                          min={0}
+                          max={sliderMaxFor(item.monthlyAmount, 20000, 5000)}
+                          step={100}
+                          prefix={moneyPrefix}
+                          suffix={t("goals:save_up.per_month_suffix")}
+                          format={(v) => String(Math.round(v))}
+                        />
+                      )}
                       <div className="grid grid-cols-2 gap-3">
                         <AgeBoundInput
                           label={t("goals:sidebar.spending.from_age")}
@@ -992,6 +1093,29 @@ export function SidebarConfigurator({
                             onValueChange={(value) =>
                               updateExpenseItem(item.id, { essential: value === "essential" })
                             }
+                          />
+                        </div>
+                        <div className="border-border grid gap-2 border-t pt-3 sm:grid-cols-[1fr_auto] sm:items-center sm:gap-3">
+                          <div className="min-w-0">
+                            <div className="text-foreground text-xs font-semibold">
+                              {t("goals:sidebar.spending.ends_at_purchase")}
+                            </div>
+                            <div className="text-muted-foreground mt-0.5 text-[11px] leading-tight">
+                              {linkedHome
+                                ? t("goals:sidebar.spending.ends_at_purchase_help", {
+                                    title: linkedHome.title,
+                                  })
+                                : t("goals:sidebar.spending.ends_at_purchase_no_home")}
+                            </div>
+                          </div>
+                          <Switch
+                            checked={item.endsAtHomePurchase ?? false}
+                            onCheckedChange={(checked) =>
+                              updateExpenseItem(item.id, {
+                                endsAtHomePurchase: checked || undefined,
+                              })
+                            }
+                            aria-label={t("goals:sidebar.spending.ends_at_purchase")}
                           />
                         </div>
                         <div className="border-border grid gap-2 border-t pt-3 sm:grid-cols-[1fr_8rem] sm:items-center sm:gap-3">
@@ -1050,7 +1174,7 @@ export function SidebarConfigurator({
               <button
                 className="text-muted-foreground hover:text-foreground rounded-md border border-dashed py-1.5 text-xs transition-colors"
                 onClick={() =>
-                  addExpenseItem(t("goals:sidebar.spending.preset_housing"), { essential: false })
+                  addExpenseItem(t("goals:sidebar.spending.preset_housing"), { essential: true })
                 }
               >
                 {t("goals:sidebar.spending.add_housing")}
@@ -1636,6 +1760,8 @@ export function SidebarConfigurator({
       <SidebarCard
         kicker={t("goals:sidebar.taxes.kicker")}
         title={t("goals:sidebar.taxes.title")}
+        // The tax-optimized style works taxes out itself.
+        hidden={plannerMode === "optimized"}
         editing={editingSection === "tax"}
         onEdit={() => setEditingSection("tax")}
         onSave={saveDraft}
@@ -1843,6 +1969,83 @@ export function SidebarConfigurator({
               step={1}
               format={(v) => String(Math.round(v))}
             />
+          </div>
+        }
+      />
+
+      {/* ── Home purchase ── */}
+      <SidebarCard
+        kicker={t("goals:sidebar.home.kicker")}
+        title={t("goals:sidebar.home.title")}
+        editing={editingSection === "home"}
+        onEdit={() => setEditingSection("home")}
+        onSave={saveDraft}
+        onCancel={cancelEdit}
+        dirty={dirty}
+        readContent={
+          linkedHome ? (
+            <div className="divide-border divide-y">
+              <ConfigRow label={t("goals:sidebar.home.goal")}>{linkedHome.title}</ConfigRow>
+              {linkedHome.targetDate && (
+                <ConfigRow label={t("goals:sidebar.home.purchase_date")}>
+                  {linkedHome.targetDate.slice(0, 7)}
+                </ConfigRow>
+              )}
+              {(linkedHome.targetAmount ?? 0) > 0 && (
+                <ConfigRow label={t("goals:sidebar.home.cash_needed")}>
+                  {amountFormatting.formatAmount(linkedHome.targetAmount ?? 0, currency)}
+                </ConfigRow>
+              )}
+            </div>
+          ) : (
+            <p className="text-muted-foreground text-xs">
+              {homeGoals.length > 0
+                ? t("goals:sidebar.home.none")
+                : t("goals:sidebar.home.no_home_goals")}
+            </p>
+          )
+        }
+        editContent={
+          <div className="space-y-2">
+            <Select
+              value={linkedHome?.id ?? "__none__"}
+              onValueChange={(value) =>
+                update((d) => ({
+                  ...d,
+                  taxOptimizer: {
+                    ...d.taxOptimizer,
+                    homeGoalId: value === "__none__" ? null : value,
+                  },
+                }))
+              }
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__none__">{t("goals:sidebar.home.none_option")}</SelectItem>
+                {homeGoals.map((goal) => (
+                  <SelectItem key={goal.id} value={goal.id}>
+                    {goal.title}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-muted-foreground text-xs leading-relaxed">
+              {plannerMode === "optimized"
+                ? t("goals:sidebar.home.hint_optimized")
+                : t("goals:sidebar.home.hint_projection")}
+            </p>
+            {plannerMode === "optimized" && homeGoalId && (
+              <div className="border-border space-y-2.5 border-t pt-3">
+                <HomeSaleFields
+                  settings={draft.taxOptimizer ?? {}}
+                  update={(patch) =>
+                    update((d) => ({ ...d, taxOptimizer: { ...d.taxOptimizer, ...patch } }))
+                  }
+                />
+              </div>
+            )}
           </div>
         }
       />

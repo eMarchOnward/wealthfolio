@@ -50,6 +50,29 @@ describe("activity-type-mapping", () => {
     ).toBeNull();
   });
 
+  it("matches labels with variable suffixes through trailing-wildcard mappings", () => {
+    const mappings = {
+      [ActivityType.TRANSFER_IN]: ["TRANSFER FROM *"],
+      [ActivityType.TRANSFER_OUT]: ["TRANSFER TO *"],
+    };
+    expect(findMappedActivityType("TRANSFER FROM 12345678", mappings)).toBe(
+      ActivityType.TRANSFER_IN,
+    );
+    expect(findMappedActivityType("Transfer to 87654321", mappings)).toBe(
+      ActivityType.TRANSFER_OUT,
+    );
+    expect(findMappedActivityType("TRANSFER", mappings)).toBeNull();
+  });
+
+  it("prefers exact matches over wildcard matches", () => {
+    expect(
+      findMappedActivityType("TRANSFER FROM CASH", {
+        [ActivityType.TRANSFER_IN]: ["TRANSFER FROM *"],
+        [ActivityType.DEPOSIT]: ["TRANSFER FROM CASH"],
+      }),
+    ).toBe(ActivityType.DEPOSIT);
+  });
+
   it("treats the selected template as the source of truth", () => {
     expect(
       findMappedActivityType("BUY", {

@@ -20,7 +20,7 @@ import {
 } from "@wealthfolio/ui";
 import { Icons } from "@wealthfolio/ui/components/ui/icons";
 import { Badge } from "@wealthfolio/ui/components/ui/badge";
-import { useState, useMemo, useCallback } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate, useParams } from "react-router-dom";
 import { ActionPalette, type ActionPaletteGroup } from "@/components/action-palette";
@@ -33,7 +33,13 @@ import {
 import { useGoalMutations } from "../hooks/use-goals";
 import { useSettingsContext } from "@/lib/settings-provider";
 import type { PlannerMode, RetirementOverview } from "@/lib/types";
-import type { RetirementPlan } from "@/features/goals/retirement-planner/types";
+import type { RetirementPlan, TaxPlanStore } from "@/features/goals/retirement-planner/types";
+import {
+  parseTaxPlanStore,
+  settingsJsonWithStore,
+  TAX_PLAN_TABS,
+  taxBucketTotal,
+} from "@/features/goals/retirement-planner/lib/tax-plan-store";
 import {
   parseSettingsJson,
   normalizeRetirementPlan,
@@ -42,6 +48,8 @@ import {
 import { usePortfolioData } from "@/features/goals/retirement-planner/hooks/use-portfolio";
 import DashboardPage from "@/features/goals/retirement-planner/pages/dashboard-page";
 import RiskLabPage from "@/features/goals/retirement-planner/pages/risk-lab-page";
+import { SidebarConfigurator } from "@/features/goals/retirement-planner/components/sidebar-configurator";
+import { TaxOptimizedTabs } from "@/features/goals/retirement-planner/pages/tax-optimized-page";
 import SaveUpDetailPage from "../save-up/components/save-up-detail";
 import { GoalEditDialog } from "../components/goal-edit-dialog";
 
@@ -60,8 +68,9 @@ export default function GoalDetailPage() {
   const navigate = useNavigate();
 
   const { goal, plan, fundingRules, isLoading, error } = useGoalDetail(goalId);
-  const { savePlanMutation } = useGoalPlanMutations(goalId ?? "");
+  const { savePlanMutation, savePlanQuietlyMutation } = useGoalPlanMutations(goalId ?? "");
   const { mutate: savePlan } = savePlanMutation;
+  const { mutate: savePlanQuietly } = savePlanQuietlyMutation;
   const { deleteMutation } = useGoalMutations();
   const { settings } = useSettingsContext();
   const todayISO = formatZonedDateKey(new Date(), settings?.timezone);
@@ -88,6 +97,12 @@ export default function GoalDetailPage() {
     return { ...parseSettingsJson(plan.settingsJson, today), currency: baseCurrency };
   }, [baseCurrency, plan, today]);
 
+  // Saved Tax Plan results and cases, kept beside the plan in its settings JSON.
+  const taxPlanStore = useMemo(
+    () => parseTaxPlanStore(plan?.planKind === "retirement" ? plan.settingsJson : undefined),
+    [plan],
+  );
+
   // DC-linked account IDs from retirement plan income streams
   const dcLinkedAccountIds = useMemo(() => {
     return retirementPlan.incomeStreams
@@ -98,8 +113,22 @@ export default function GoalDetailPage() {
   // Feed portfolio data from funding-rule-derived accounts
   const portfolioData = usePortfolioData(isRetirement ? eligibleAccountIds : undefined);
 
-  // Retirement pages land on Overview because all primary settings live in the dashboard sidebar.
+  // Retirement pages land on Overview because all primary settings live in the dashboard
+  // sidebar. The tax-optimized style has its own tabs, and lands on its Plan tab
+  // until the plan has been optimized.
+  const isOptimized = plan?.plannerMode === "optimized";
+  const tabValues: string[] = isOptimized ? TAX_PLAN_TABS : ["overview", "risk-lab"];
   const [activeTab, setActiveTab] = useState("overview");
+  const hasTaxPlanRun = Boolean(taxPlanStore.lastRun);
+  const landedOn = useRef<string | null>(null);
+  useEffect(() => {
+    const landing = `${goalId}:${isOptimized}`;
+    if (!goalId || !plan || landedOn.current === landing) return;
+    landedOn.current = landing;
+    setActiveTab(isOptimized && !hasTaxPlanRun ? "plan" : "overview");
+  }, [goalId, hasTaxPlanRun, isOptimized, plan]);
+  // A style change can leave the open tab behind.
+  const shownTab = tabValues.includes(activeTab) ? activeTab : "overview";
 
   const handleSaveRetirementPlan = useCallback(
     (updated: RetirementPlan, nextPlannerMode?: PlannerMode) => {
@@ -109,8 +138,9 @@ export default function GoalDetailPage() {
           goalId,
           planKind: "retirement",
           plannerMode: nextPlannerMode ?? plan?.plannerMode ?? "traditional",
-          settingsJson: JSON.stringify(
+          settingsJson: settingsJsonWithStore(
             normalizeRetirementPlan({ ...updated, currency: baseCurrency }, today),
+            taxPlanStore,
           ),
         },
         {
@@ -120,7 +150,29 @@ export default function GoalDetailPage() {
         },
       );
     },
-    [baseCurrency, goalId, plan?.plannerMode, savePlan, today],
+    [baseCurrency, goalId, plan?.plannerMode, savePlan, taxPlanStore, today],
+  );
+
+  // Saves Tax Plan results and cases without a toast; `updated` also replaces the
+  // plan (loading a case).
+  const handleSaveTaxPlanStore = useCallback(
+    (store: TaxPlanStore, updated?: RetirementPlan) => {
+      if (!goalId) return;
+      const save = updated ? savePlan : savePlanQuietly;
+      save({
+        goalId,
+        planKind: "retirement",
+        plannerMode: plan?.plannerMode ?? "traditional",
+        settingsJson: settingsJsonWithStore(
+          normalizeRetirementPlan(
+            { ...(updated ?? retirementPlan), currency: baseCurrency },
+            today,
+          ),
+          store,
+        ),
+      });
+    },
+    [baseCurrency, goalId, plan?.plannerMode, retirementPlan, savePlan, savePlanQuietly, today],
   );
 
   const [editOpen, setEditOpen] = useState(false);
@@ -179,26 +231,29 @@ export default function GoalDetailPage() {
     },
   ] satisfies ActionPaletteGroup[];
   const hasRetirementTabs = isRetirement && Boolean(plan);
-  const retirementTabItems = [
-    {
-      value: "overview",
+  const tabItem = (value: string, icon: keyof typeof Icons, label: string) => {
+    const Icon = Icons[icon];
+    return {
+      value,
       label: (
         <span className="flex items-center gap-2">
-          <Icons.CircleGauge className="size-3.5" />
-          {t("goals:detail.tab_overview")}
+          <Icon className="size-3.5" />
+          {label}
         </span>
       ),
-    },
-    {
-      value: "risk-lab",
-      label: (
-        <span className="flex items-center gap-2">
-          <Icons.ShieldAlert className="size-3.5" />
-          {t("goals:detail.tab_what_if")}
-        </span>
-      ),
-    },
-  ];
+    };
+  };
+  const retirementTabItems = isOptimized
+    ? [
+        tabItem("plan", "Settings2", t("goals:detail.tab_plan")),
+        tabItem("overview", "CircleGauge", t("goals:detail.tab_overview")),
+        tabItem("risk", "ShieldAlert", t("goals:detail.tab_risk")),
+        tabItem("compare", "ArrowLeftRight", t("goals:detail.tab_compare")),
+      ]
+    : [
+        tabItem("overview", "CircleGauge", t("goals:detail.tab_overview")),
+        tabItem("risk-lab", "ShieldAlert", t("goals:detail.tab_what_if")),
+      ];
   const retirementTabs = hasRetirementTabs ? (
     <div className="hidden md:block">
       <AnimatedToggleGroup
@@ -207,7 +262,7 @@ export default function GoalDetailPage() {
         rounded="full"
         className="bg-muted/60 p-1"
         items={retirementTabItems}
-        value={activeTab}
+        value={shownTab}
         onValueChange={setActiveTab}
       />
     </div>
@@ -233,7 +288,7 @@ export default function GoalDetailPage() {
         rounded="full"
         className="bg-muted/60 mx-auto shrink-0 p-1"
         items={retirementTabItems}
-        value={activeTab}
+        value={shownTab}
         onValueChange={setActiveTab}
       />
     </div>
@@ -308,6 +363,8 @@ export default function GoalDetailPage() {
                 plan={retirementPlan}
                 portfolioData={portfolioData}
                 onSavePlan={handleSaveRetirementPlan}
+                taxPlanStore={taxPlanStore}
+                onSaveTaxPlanStore={handleSaveTaxPlanStore}
                 plannerMode={plan.plannerMode ?? "traditional"}
                 goalId={goalId!}
                 dcLinkedAccountIds={dcLinkedAccountIds}
@@ -336,7 +393,7 @@ export default function GoalDetailPage() {
   return (
     <Page>
       {hasRetirementTabs ? (
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="contents">
+        <Tabs value={shownTab} onValueChange={setActiveTab} className="contents">
           {content}
         </Tabs>
       ) : (
@@ -351,6 +408,8 @@ function RetirementDetail({
   plan,
   portfolioData,
   onSavePlan,
+  taxPlanStore,
+  onSaveTaxPlanStore,
   plannerMode,
   goalId,
   dcLinkedAccountIds,
@@ -362,6 +421,8 @@ function RetirementDetail({
   plan: RetirementPlan;
   portfolioData: ReturnType<typeof usePortfolioData>;
   onSavePlan: (p: RetirementPlan, plannerMode?: PlannerMode) => void;
+  taxPlanStore: TaxPlanStore;
+  onSaveTaxPlanStore: (store: TaxPlanStore, updated?: RetirementPlan) => void;
   plannerMode: PlannerMode;
   goalId: string;
   dcLinkedAccountIds: string[];
@@ -369,6 +430,34 @@ function RetirementDetail({
   retirementOverviewError?: Error | null;
   retirementOverviewIsFetching?: boolean;
 }) {
+  if (plannerMode === "optimized") {
+    return (
+      <TaxOptimizedTabs
+        goalId={goalId}
+        plan={plan}
+        onSavePlan={(p) => onSavePlan(p)}
+        store={taxPlanStore}
+        onSaveStore={onSaveTaxPlanStore}
+        currentBalanceTotal={
+          retirementOverview ? taxBucketTotal(retirementOverview.taxBucketBalances) : undefined
+        }
+        planInputs={
+          <SidebarConfigurator
+            key={`${plannerMode}:${JSON.stringify(plan)}`}
+            plan={plan}
+            currency={plan.currency}
+            plannerMode={plannerMode}
+            onSavePlan={onSavePlan}
+            retirementOverview={retirementOverview}
+            goalId={goalId}
+            dcLinkedAccountIds={dcLinkedAccountIds}
+          />
+        }
+        onTabChange={onTabChange}
+      />
+    );
+  }
+
   return (
     <>
       <TabsContent value="overview">

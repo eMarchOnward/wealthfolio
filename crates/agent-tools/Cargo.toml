@@ -18,6 +18,7 @@ chrono = { workspace = true }
 log = { workspace = true }
 rust_decimal = { workspace = true }
 uuid = { workspace = true }
+tokio = { workspace = true }
 
 wealthfolio-core = { path = "../core" }
 wealthfolio-spending = { path = "../spending" }

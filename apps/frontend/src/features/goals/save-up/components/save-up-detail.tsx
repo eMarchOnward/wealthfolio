@@ -34,6 +34,10 @@ import {
 } from "../../components/goal-lever-row";
 import { useGoalPlanMutations, useSaveUpPreview } from "../../hooks/use-goal-detail";
 import { useGoalMutations } from "../../hooks/use-goals";
+import { useRetirementHomeLink } from "../../hooks/use-home-link";
+import { rawPlanSettings } from "../lib/home-purchase";
+import { HomePurchaseCard } from "./home-purchase-card";
+import { LinkedHomeSummary } from "./linked-home-summary";
 import { SaveUpProjectionCard } from "./save-up-projection-card";
 import { buildSavingsMilestones, SavingsMilestonesCard } from "./savings-milestones-card";
 
@@ -105,6 +109,9 @@ export default function SaveUpDetailPage({ goal, plan, overview }: Props) {
   const { settings } = useSettingsContext();
   const { savePlanMutation } = useGoalPlanMutations(goal.id);
   const { updateMutation } = useGoalMutations();
+  const homeLink = useRetirementHomeLink();
+  const isHome = goal.goalType === "home";
+  const linkedToRetirement = isHome && homeLink.linkedHomeId === goal.id;
   const existingSettings = parseSaveUpSettings(plan);
   const progress = overview?.progress ?? goal.summaryProgress ?? 0;
   const currentValue = overview?.currentValue ?? goal.summaryCurrentValue ?? 0;
@@ -199,10 +206,11 @@ export default function SaveUpDetailPage({ goal, plan, overview }: Props) {
       expectedAnnualReturn: annualReturn,
     };
 
+    // Keep other settings saved with the plan, such as a home goal's purchase.
     savePlanMutation.mutate({
       goalId: goal.id,
       planKind: "save_up",
-      settingsJson: JSON.stringify(settings),
+      settingsJson: JSON.stringify({ ...rawPlanSettings(plan), ...settings }),
     });
 
     const prog = targetAmount > 0 ? Math.min(currentValue / targetAmount, 1) : 0;
@@ -220,6 +228,7 @@ export default function SaveUpDetailPage({ goal, plan, overview }: Props) {
     setIsEditingPlan(false);
   }, [
     goal,
+    plan,
     targetAmount,
     targetDate,
     monthlyContribution,
@@ -281,6 +290,30 @@ export default function SaveUpDetailPage({ goal, plan, overview }: Props) {
       }),
     [chartData, targetAmount, currentValue, t, dateFormatting, numberFormatting],
   );
+
+  // A home the retirement plan pays for: no savings progress, the plan's view instead.
+  if (linkedToRetirement && homeLink.retirementGoal && homeLink.retirementPlan) {
+    return (
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        <div className="space-y-6 lg:col-span-2">
+          <LinkedHomeSummary
+            goal={goal}
+            plan={plan}
+            retirementGoal={homeLink.retirementGoal}
+            retirementPlan={homeLink.retirementPlan}
+          />
+          <HomePurchaseCard goal={goal} plan={plan} />
+        </div>
+        <div className="space-y-6 lg:sticky lg:top-6 lg:col-span-1 lg:self-start">
+          <HomeFundingChoiceCard
+            linked
+            pending={homeLink.link.isPending}
+            onChange={() => homeLink.link.mutate(null)}
+          />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
@@ -396,6 +429,8 @@ export default function SaveUpDetailPage({ goal, plan, overview }: Props) {
             isHidden={isBalanceHidden}
           />
         )}
+
+        {goal.goalType === "home" && <HomePurchaseCard goal={goal} plan={plan} />}
 
         {/* Projection chart */}
         {chartData.length > 2 && (
@@ -520,6 +555,14 @@ export default function SaveUpDetailPage({ goal, plan, overview }: Props) {
           }
         />
 
+        {isHome && homeLink.retirementGoal && (
+          <HomeFundingChoiceCard
+            linked={false}
+            pending={homeLink.link.isPending}
+            onChange={() => homeLink.link.mutate(goal.id)}
+          />
+        )}
+
         {/* Funding */}
         <GoalFundingEditor goalId={goal.id} goalType={goal.goalType} />
       </div>
@@ -528,6 +571,43 @@ export default function SaveUpDetailPage({ goal, plan, overview }: Props) {
 }
 
 // ─── Shared helpers ──────────────────────────────────────────────
+
+/** Switches a home goal between saving from its own accounts and the retirement plan. */
+function HomeFundingChoiceCard({
+  linked,
+  pending,
+  onChange,
+}: {
+  linked: boolean;
+  pending: boolean;
+  onChange: () => void;
+}) {
+  const { t } = useTranslation();
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <div className="text-muted-foreground mb-1 text-xs font-medium uppercase tracking-[0.15em]">
+          {t("goals:linked_home.funding_kicker")}
+        </div>
+        <CardTitle className="text-md leading-none tracking-tight">
+          {linked
+            ? t("goals:linked_home.funding_linked_title")
+            : t("goals:linked_home.funding_accounts_title")}
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <p className="text-muted-foreground text-xs leading-relaxed">
+          {linked
+            ? t("goals:linked_home.funding_linked_hint")
+            : t("goals:linked_home.funding_accounts_hint")}
+        </p>
+        <Button variant="outline" size="sm" onClick={onChange} disabled={pending}>
+          {linked ? t("goals:linked_home.unlink") : t("goals:linked_home.link")}
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
 
 interface SaveUpStatus {
   label: string;

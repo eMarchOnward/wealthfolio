@@ -3,7 +3,7 @@ import { DEFAULT_DC_PAYOUT_ESTIMATE_RATE } from "./constants";
 import { activeExpenseItems } from "./expense-items";
 import type { RetirementIncomeStream, RetirementPlan } from "../types";
 
-export type PlannerMode = "fire" | "traditional";
+export type PlannerMode = "fire" | "traditional" | "optimized";
 
 export function modeLabel(mode: PlannerMode, t: TFunction = i18next.t) {
   return {

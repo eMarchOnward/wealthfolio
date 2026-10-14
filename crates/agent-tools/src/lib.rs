@@ -18,6 +18,6 @@ pub mod tool;
 pub mod tools;
 
 pub use catalog::AgentToolCatalog;
-pub use env::AgentEnvironment;
+pub use env::{AgentEnvironment, AgentPlatformServices};
 pub use scope::{AgentScope, AgentScopeSet};
 pub use tool::{AgentTool, AgentToolAccess, AgentToolError, AgentToolResult};

@@ -84,7 +84,8 @@ import { SpendingPeriodSelector } from "./spending-period-toggle";
 
 const FUTURE_BAR = "#E5E7EB";
 const SPENDING_TAXONOMY = "spending_categories";
-type SpendingDashboardPeriod = "MTD" | "LAST_MONTH" | "3M" | "6M" | "YTD" | "1Y";
+type SpendingDashboardPeriod = "MTD" | "LAST_MONTH" | "3M" | "6M" | "YTD" | "1Y" | "10Y";
+type BarGranularity = "day" | "week" | "month" | "year";
 
 type SpendingSelection =
   | { kind: "period"; code: SpendingDashboardPeriod }
@@ -98,6 +99,7 @@ const SPENDING_DASHBOARD_PERIODS: SpendingDashboardPeriod[] = [
   "6M",
   "YTD",
   "1Y",
+  "10Y",
 ];
 
 const DEFAULT_INTERVAL: SpendingDashboardPeriod = "MTD";
@@ -109,6 +111,7 @@ const INTERVAL_DESCRIPTIONS: Record<SpendingDashboardPeriod, string> = {
   "6M": "spending:tabContent.interval6M",
   YTD: "spending:tabContent.intervalYtd",
   "1Y": "spending:tabContent.interval1Y",
+  "10Y": "spending:tabContent.interval10Y",
 };
 
 // The three insights stages, surfaced as a "Dig deeper" strip under Recent
@@ -182,6 +185,9 @@ function spendingIntervalData(code: SpendingDashboardPeriod, timezone?: string |
         return { start: { year: today.year, month: 1, day: 1 }, end: today };
       case "1Y":
         return { start: { ...today, year: today.year - 1 }, end: today };
+      // Ten calendar years, this one included, so each bar is a whole year.
+      case "10Y":
+        return { start: { year: today.year - 9, month: 1, day: 1 }, end: today };
     }
   })();
 
@@ -197,6 +203,8 @@ function spendingIntervalData(code: SpendingDashboardPeriod, timezone?: string |
 
 function insightPeriodForDashboardInterval(code: SpendingDashboardPeriod): ReportsPeriod {
   if (code === "LAST_MONTH") return "LAST_MONTH";
+  // Insights has no ten-year view; its longest window is a year.
+  if (code === "10Y") return "1Y";
   return code;
 }
 
@@ -261,7 +269,7 @@ function selectionData(
     return {
       range: selection.range,
       description: `${format(from)} – ${format(to)}`,
-      insightPeriod: selection.restoreCode,
+      insightPeriod: insightPeriodForDashboardInterval(selection.restoreCode),
     };
   }
 
@@ -310,13 +318,11 @@ function priorRange(
  * Map a spending-chart bar `key` to the [from, to] date range it covers, so a
  * bar click can deep-link into the Transactions list for that period. The key
  * shape depends on granularity (see the barData builder): `YYYY-MM-DD` for the
- * day/week start, `YYYY-MM` for a month.
+ * day/week start, `YYYY-MM` for a month, `YYYY` for a year.
  */
-function barKeyToRange(
-  key: string,
-  granularity: "day" | "week" | "month",
-): { from: string; to: string } {
+function barKeyToRange(key: string, granularity: BarGranularity): { from: string; to: string } {
   if (granularity === "day") return { from: key, to: key };
+  if (granularity === "year") return { from: `${key}-01-01`, to: `${key}-12-31` };
   if (granularity === "week") {
     const [y, m, d] = key.split("-").map(Number);
     return { from: key, to: formatDateISO(new Date(y, m - 1, d + 6)) };
@@ -682,7 +688,7 @@ export default function SpendingTabContent() {
     setBudgetMonthTouched(false);
   };
 
-  const granularity: "day" | "week" | "month" = useMemo(() => {
+  const granularity: BarGranularity = useMemo(() => {
     if (selection.kind === "month") return "day";
     if (selection.kind === "range") {
       const days = calendarDaysBetweenInclusive(
@@ -698,6 +704,8 @@ export default function SpendingTabContent() {
       case "3M":
       case "6M":
         return "week";
+      case "10Y":
+        return "year";
       default:
         return "month";
     }
@@ -750,6 +758,10 @@ export default function SpendingTabContent() {
         key = formatDateISO(monday);
         label = `${monthLabels[monday.getMonth()]} ${monday.getDate()}`;
         sortKey = key;
+      } else if (granularity === "year") {
+        key = yStr;
+        label = year === todayParts.year ? t("spending:tabContent.yearToDateBar", { year }) : yStr;
+        sortKey = yStr;
       } else {
         key = `${year}-${mStr}`;
         label =
@@ -805,7 +817,10 @@ export default function SpendingTabContent() {
       data = Array.from(padded.values()).sort((a, b) => a.sortKey.localeCompare(b.sortKey));
     }
 
-    const observed = data.filter((d) => d.value > 0);
+    // The current year is still partial; averaging it in would understate a year.
+    const observed = data.filter(
+      (d) => d.value > 0 && !(granularity === "year" && d.key === String(todayParts.year)),
+    );
     const avg =
       observed.length > 0 ? observed.reduce((s, d) => s + d.value, 0) / observed.length : 0;
     const labelByGranularity =
@@ -813,7 +828,9 @@ export default function SpendingTabContent() {
         ? t("spending:tabContent.dailyAvg")
         : granularity === "week"
           ? t("spending:tabContent.weeklyAvg")
-          : t("spending:tabContent.monthlyAvg");
+          : granularity === "year"
+            ? t("spending:tabContent.yearlyAvg")
+            : t("spending:tabContent.monthlyAvg");
     return { barData: data, avgValue: avg, avgLabel: labelByGranularity };
   }, [report?.byDay, granularity, dateRange, appTimezone, t]);
 
@@ -1123,6 +1140,7 @@ export default function SpendingTabContent() {
               className="pointer-events-auto relative z-20 w-full max-w-screen-sm sm:max-w-screen-md md:max-w-2xl lg:max-w-3xl"
               value={selectedPeriod}
               onValueChange={handleIntervalSelect}
+              periods={SPENDING_DASHBOARD_PERIODS}
               customMonth={customMonth}
               customRange={customRange}
               maxMonth={maxPickerMonth}

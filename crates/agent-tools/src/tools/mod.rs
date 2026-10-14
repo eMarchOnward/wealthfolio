@@ -8,6 +8,7 @@ pub mod accounts;
 pub mod activities;
 pub mod activity_import;
 pub mod allocation;
+pub mod alternatives;
 pub mod asset_classification;
 pub mod asset_taxonomies;
 pub mod cash_balances;
@@ -21,13 +22,19 @@ pub mod goals;
 pub mod health;
 pub mod holdings;
 pub mod income;
+pub mod market;
 pub mod net_worth;
 pub mod performance;
+pub mod planning;
 pub mod portfolios;
 pub mod propose_categories;
 pub mod quote_import;
 pub mod record_activities;
 pub mod record_activity;
+pub mod records;
+pub mod spending;
+mod support;
+pub mod targets;
 pub mod transfer_links;
 pub mod valuation;
 
@@ -200,6 +207,96 @@ pub fn transfer_link_tools() -> Vec<Arc<dyn AgentTool>> {
         Arc::new(FindTransferMatches),
         Arc::new(LinkTransferActivities),
         Arc::new(UnlinkTransferActivities),
+    ]
+}
+
+/// The MCP-only platform tools: goal planning and the planners, spending,
+/// allocation targets, alternative assets, market data and the writes that
+/// reach past activities and classification. Not exposed to the in-app
+/// assistant, which has no confirmation card for these.
+pub fn platform_tools() -> Vec<Arc<dyn AgentTool>> {
+    vec![
+        Arc::new(planning::GetGoalDetails),
+        Arc::new(planning::GetGoalOverview),
+        Arc::new(planning::GetTaxPlanAccounts),
+        Arc::new(planning::PreviewSaveUpPlan),
+        Arc::new(planning::RunRetirementProjection),
+        Arc::new(planning::RunRetirementMonteCarlo),
+        Arc::new(planning::RunRetirementStressTests),
+        Arc::new(planning::RunRetirementScenarios),
+        Arc::new(planning::RunRetirementSensitivityMap),
+        Arc::new(planning::OptimizeTaxPlan),
+        Arc::new(planning::RunTaxPlanSuccess),
+        Arc::new(planning::RunTaxPlanSafeSpending),
+        Arc::new(planning::RunTaxPlanChoiceCosts),
+        Arc::new(planning::RunTaxPlanStressTests),
+        Arc::new(planning::RunTaxPlanConversionRegret),
+        Arc::new(spending::GetSpendingSettings),
+        Arc::new(spending::GetSpendingReport),
+        Arc::new(spending::GetSpendingInsight),
+        Arc::new(spending::GetBudget),
+        Arc::new(spending::ListSpendingEvents),
+        Arc::new(spending::ListCategorizationRules),
+        Arc::new(spending::GetActivityCategories),
+        Arc::new(targets::GetAllocationTargets),
+        Arc::new(targets::GetAllocationDrift),
+        Arc::new(targets::CalculateRebalancePlan),
+        Arc::new(alternatives::GetAlternativeAssets),
+        Arc::new(alternatives::GetLoanPayments),
+        Arc::new(alternatives::PreviewLoanTerms),
+        Arc::new(market::GetAssets),
+        Arc::new(market::GetQuoteHistory),
+        Arc::new(market::GetLatestQuotes),
+        Arc::new(market::GetExchangeRates),
+        Arc::new(market::GetTaxLots),
+        Arc::new(market::GetHoldingsSnapshots),
+        Arc::new(records::GetSettings),
+        Arc::new(records::ListImportTemplates),
+        // Writes.
+        Arc::new(records::CreateAccount),
+        Arc::new(records::UpdateAccount),
+        Arc::new(records::DeleteAccount),
+        Arc::new(records::SavePortfolio),
+        Arc::new(records::DeletePortfolio),
+        Arc::new(records::SaveContributionLimit),
+        Arc::new(records::DeleteContributionLimit),
+        Arc::new(records::CreateGoal),
+        Arc::new(records::UpdateGoal),
+        Arc::new(records::DeleteGoal),
+        Arc::new(records::SaveGoalFunding),
+        Arc::new(records::UpdateGoalPlan),
+        Arc::new(records::UpdateActivity),
+        Arc::new(records::DeleteActivity),
+        Arc::new(records::CreateTaxonomyCategory),
+        Arc::new(records::UpdateTaxonomyCategory),
+        Arc::new(records::DeleteTaxonomyCategory),
+        Arc::new(records::DismissHealthIssue),
+        Arc::new(spending::AssignActivityCategories),
+        Arc::new(spending::ClearActivityCategory),
+        Arc::new(spending::SetActivitySplits),
+        Arc::new(spending::SetActivityEvent),
+        Arc::new(spending::SaveSpendingEvent),
+        Arc::new(spending::DeleteSpendingEvent),
+        Arc::new(spending::CreateSpendingEventType),
+        Arc::new(spending::SaveBudgetTarget),
+        Arc::new(spending::DeleteBudgetTarget),
+        Arc::new(spending::UpdateCategorizationRule),
+        Arc::new(spending::DeleteCategorizationRule),
+        Arc::new(spending::RerunCategorizationRules),
+        Arc::new(spending::UpdateSpendingSettings),
+        Arc::new(targets::SaveAllocationTarget),
+        Arc::new(targets::DeleteAllocationTarget),
+        Arc::new(alternatives::CreateAlternativeAsset),
+        Arc::new(alternatives::UpdateAlternativeAssetValuation),
+        Arc::new(alternatives::UpdateAlternativeAssetDetails),
+        Arc::new(alternatives::DeleteAlternativeAsset),
+        Arc::new(alternatives::LinkLiability),
+        Arc::new(alternatives::ApplyLoanAction),
+        Arc::new(market::SyncMarketData),
+        Arc::new(market::DeleteQuote),
+        Arc::new(market::SaveExchangeRate),
+        Arc::new(market::DeleteExchangeRate),
+        Arc::new(market::UpdateAssetProfile),
     ]
 }
 

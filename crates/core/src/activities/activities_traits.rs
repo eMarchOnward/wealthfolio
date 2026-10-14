@@ -453,6 +453,10 @@ pub trait ActivityServiceTrait: Send + Sync {
         activity_a_id: String,
         activity_b_id: String,
     ) -> Result<(Activity, Activity)>;
+    /// Links every unlinked cash transfer whose only candidate is a same-day,
+    /// same-amount transfer the other way that likewise has no other candidate.
+    /// Ambiguous transfers are left for manual linking. Returns the pairs linked.
+    async fn link_exact_transfer_matches(&self) -> Result<usize>;
     async fn bulk_mutate_activities(
         &self,
         request: ActivityBulkMutationRequest,

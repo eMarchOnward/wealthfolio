@@ -265,7 +265,9 @@
       "return_before_hint": "储蓄期间的假设年收益率，未扣除投资费用。",
       "return_during_hint": "开始提款后的假设年收益率，未扣除投资费用。",
       "annual_fee_hint": "估算的年度投资组合费用。",
-      "inflation_hint": "假设的年度物价涨幅。"
+      "inflation_hint": "假设的年度物价涨幅。",
+      "tax_optimized": "税务优化",
+      "mode_change_optimized": "您的退休年龄将成为固定的退休开始年龄，“税务规划”标签页会计算税务优化的提取计划。"
     },
     "spending": {
       "kicker": "支出",
@@ -463,7 +465,9 @@
     "target_date": "目标日期",
     "funding_hint": "创建后您可以选择资金账户和每月供款。",
     "creating": "正在创建……",
-    "create_goal_button": "创建目标"
+    "create_goal_button": "创建目标",
+    "planner_tax_optimized": "税务优化",
+    "planner_tax_optimized_hint": "找出使终身税负最低的提取顺序、Roth 转换和申领年龄（美国）"
   },
   "guide": {
     "title": "退休指南",
@@ -589,7 +593,8 @@
     "tax_bucket": {
       "taxable": "应税",
       "tax_deferred": "递延税",
-      "tax_free": "免税"
+      "tax_free": "免税",
+      "hsa": "HSA"
     }
   },
   "value_mode": {
@@ -917,6 +922,120 @@
         "label": "退休初期市场下跌",
         "description": "模型假设退休第一年市场下跌30%。"
       }
+    }
+  },
+  "tax_plan": {
+    "title": "税务优化退休计划",
+    "description": "计算应从哪些账户提取、何时转换为 Roth 以及何时申领社会保障，以使终身美国联邦税最低。使用已保存的计划和目标的账户。",
+    "run": "优化",
+    "rerun": "重新优化",
+    "running": "正在优化…可能需要一分钟",
+    "failed": "无法运行优化器：{{message}}",
+    "stale": "此结果之后计划已更改。请重新优化以更新。",
+    "infeasible": "这些账户无法支撑这些支出。",
+    "approximate": "求解器已达到时间上限，因此该计划接近最优，但未被证明最优。",
+    "chart": {
+      "age_label": "{{age}} 岁",
+      "sources": "每年资金来源",
+      "balances": "按税务类型的余额",
+      "conversions": "Roth 转换、税款与 Medicare"
+    },
+    "series": {
+      "wages": "工资",
+      "social_security": "社会保障",
+      "other_income": "其他收入",
+      "taxable": "应税账户",
+      "tax_deferred": "递延纳税",
+      "roth": "Roth",
+      "spending": "支出",
+      "roth_conversion": "Roth 转换",
+      "taxes": "联邦税",
+      "medicare": "Medicare",
+      "saved": "储蓄",
+      "hsa": "HSA",
+      "gain_harvest": "收获的收益",
+      "state_tax": "州税",
+      "employer_match": "雇主匹配",
+      "debt_payment": "债务还款"
+    },
+    "summary": {
+      "sustainable_spending": "可持续支出",
+      "per_year_today": "每年，按今日币值",
+      "estate": "税后遗产",
+      "estate_hint": "计划结束时留给继承人，按今日币值",
+      "lifetime_tax": "终身联邦税",
+      "lifetime_medicare": "另加 Medicare 保费 {{amount}}",
+      "roth_conversions": "Roth 转换总额",
+      "claim_age": "社会保障申领",
+      "claim_age_value": "{{age}} 岁 {{months}} 个月"
+    },
+    "table": {
+      "title": "年度行动计划（今日币值）",
+      "year": "年份",
+      "age": "年龄",
+      "working": "在职"
+    },
+    "settings": {
+      "title": "优化器设置",
+      "objective": "目标",
+      "objective_max_bequest": "满足支出，留下最多遗产",
+      "objective_max_spending": "尽可能多地支出",
+      "bequest_floor": "至少留下（税后）",
+      "social_security_stream": "社会保障收入来源",
+      "optimize_claim_age": "由优化器选择申领年龄",
+      "pre_tax_contribution": "税前 401(k)（每年）",
+      "employer_contribution": "雇主缴款（每年）",
+      "roth_contribution": "Roth 缴款（每年）",
+      "taxable_contribution": "应税投资（每年）",
+      "max_roth_conversion": "每年 Roth 转换上限",
+      "heirs_tax_rate": "继承人对 IRA 的税率（%）",
+      "prior_magi": "近期 MAGI",
+      "prior_magi_help": "最近两年的调整后总收入（决定 Medicare 附加费）；最好取自报税表。留空则使用 {{amount}}（工资减去税前缴款）。",
+      "state": "州所得税",
+      "no_state": "无",
+      "state_va": "弗吉尼亚州",
+      "aca_benchmark_premium": "ACA 基准保费（每年）",
+      "hsa_contribution": "HSA 缴款（每年）",
+      "other_medical_expenses": "其他医疗费用（每年）",
+      "rule_of_55_balance": "55 岁规则：401(k) 余额",
+      "sepp_start_age": "72(t) 付款：开始年龄",
+      "sepp_annual_payment": "72(t) 年度付款",
+      "harvest_gains": "在低税年份收获收益",
+      "optimize_contributions": "优化在职期间的缴款",
+      "match_rate": "雇主匹配比例（%）",
+      "match_cap": "匹配上限（工资的 %）",
+      "hsa_eligible": "高免赔额医疗保险（可开 HSA）",
+      "roth_401k_available": "401(k) 提供 Roth",
+      "debts": "债务",
+      "add_debt": "添加债务",
+      "remove_debt": "删除",
+      "debt_label": "名称",
+      "debt_balance": "余额",
+      "debt_rate": "利率（%）",
+      "debt_payment": "每年还款",
+      "enter_social_security": "在下方输入金额",
+      "social_security_monthly": "社会保障（每月）",
+      "social_security_claim_age": "社会保障申领年龄",
+      "optimize_claim_age_needs_benefit": "请先输入社会保障福利。",
+      "salary": "年薪（税前）",
+      "salary_growth": "年薪增长（%）"
+    },
+    "baseline": {
+      "title": "优化的价值",
+      "description": "与常规做法相比：先用应税账户，再用递延纳税账户，最后用 Roth，不做 Roth 转换，并在计划年龄申领社会保障。",
+      "infeasible": "常规做法完全无法支撑该计划；优化后的顺序可以。",
+      "extra_estate": "税后遗产增加",
+      "extra_spending": "每年可多支出",
+      "versus": "常规做法：{{amount}}"
+    },
+    "success": {
+      "title": "成功概率",
+      "description": "按计划支出，在 1928 年以来的每段历史市场序列或重新抽样的年份上重新求解计划。",
+      "run_historical": "历史（1928 年以来）",
+      "running": "正在求解每条路径…可能需要几分钟。",
+      "summary": "{{paths}} 条路径中有 {{funded}} 条能支撑每年 {{spending}}。",
+      "estates": "留下的遗产（第 10/50/90 百分位）：{{p10}} / {{p50}} / {{p90}}",
+      "failed_years": "从以下年份开始会耗尽：{{years}}"
     }
   }
 }

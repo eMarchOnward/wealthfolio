@@ -941,6 +941,9 @@ mod tests {
                     start_age: None,
                     end_age: None,
                     essential: None,
+                    paid_while_working: false,
+                    yearly: false,
+                    ends_at_home_purchase: false,
                 }],
             },
             income_streams: vec![],
@@ -956,6 +959,7 @@ mod tests {
             },
             tax: None,
             currency: "EUR".to_string(),
+            tax_optimizer: None,
         }
     }
 

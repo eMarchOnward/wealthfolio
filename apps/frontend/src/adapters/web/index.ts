@@ -107,6 +107,7 @@ export {
   getAccountImportMapping,
   linkAccountTemplate,
   linkTransferActivities,
+  linkExactTransferMatches,
   unlinkTransferActivities,
   getActivities,
   importActivities,
@@ -519,6 +520,13 @@ export {
 // FIRE Planner (desktop-only — stubs throw at runtime)
 export {
   calculateRetirementProjection,
+  getRetirementTaxPlanAccounts,
+  optimizeRetirementTaxPlan,
+  runRetirementTaxSuccess,
+  runRetirementTaxSafeSpending,
+  runRetirementTaxChoiceCosts,
+  runRetirementTaxStressTests,
+  runRetirementTaxConversionRegret,
   runRetirementDecisionSensitivityMap,
   runRetirementMonteCarlo,
   runRetirementScenarioAnalysis,

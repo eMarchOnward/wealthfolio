@@ -70,6 +70,45 @@ impl<'a> CurrentAccountValuationService<'a> {
         .await
     }
 
+    /// Current value of every active, non-archived account in `base_currency`,
+    /// by account id: the values goals and retirement plans start from.
+    pub async fn base_value_by_account(
+        &self,
+        base_currency: &str,
+        latest_snapshot_cutoff: NaiveDate,
+    ) -> Result<HashMap<String, f64>> {
+        use rust_decimal::prelude::ToPrimitive;
+
+        let account_ids: Vec<String> = self
+            .account_service
+            .get_active_non_archived_accounts()?
+            .into_iter()
+            .map(|account| account.id)
+            .collect();
+        let response = self
+            .get_current_valuation_for_scope(
+                "all",
+                &account_ids,
+                base_currency,
+                latest_snapshot_cutoff,
+                true,
+            )
+            .await?;
+        response
+            .accounts
+            .iter()
+            .map(|account| {
+                let value = account.total_value_base.to_f64().ok_or_else(|| {
+                    crate::errors::Error::Unexpected(format!(
+                        "Invalid base valuation total for account {}",
+                        account.account_id
+                    ))
+                })?;
+                Ok((account.account_id.clone(), value))
+            })
+            .collect()
+    }
+
     pub async fn get_current_valuation_for_scope_at(
         &self,
         scope_id: &str,

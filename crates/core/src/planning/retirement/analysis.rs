@@ -200,7 +200,23 @@ pub fn run_monte_carlo_with_mode_and_seed(
                         year_monthly_contribution,
                         annual_return,
                     );
-                    let grown_buckets = apply_growth(buckets, annual_return);
+                    let mut grown_buckets = apply_growth(buckets, annual_return);
+                    let paid_now =
+                        expenses_paid_while_working(&expenses_clone, age, i, cumulative_inflation);
+                    if paid_now > 0.0 {
+                        let outcome = apply_planned_spending_withdrawal(
+                            &grown_buckets,
+                            paid_now,
+                            0.0,
+                            &tax_clone,
+                            age,
+                        );
+                        // These are must-have costs, like a home's down payment.
+                        if outcome.spending_funded < paid_now * FUNDING_TOLERANCE {
+                            essential_funded_every_year = false;
+                        }
+                        grown_buckets = outcome.remaining_buckets;
+                    }
                     buckets = add_contribution(grown_buckets, annual_contribution, &tax_clone);
                 }
 
@@ -1193,6 +1209,9 @@ fn set_total_monthly_expense(expenses: &mut ExpenseBudget, base_total: f64, targ
             start_age: None,
             end_age: None,
             essential: Some(true),
+            paid_while_working: false,
+            yearly: false,
+            ends_at_home_purchase: false,
         });
     }
 }
@@ -1248,6 +1267,9 @@ mod tests {
                     start_age: None,
                     end_age: None,
                     essential: None,
+                    paid_while_working: false,
+                    yearly: false,
+                    ends_at_home_purchase: false,
                 }],
             },
             income_streams: vec![],
@@ -1263,6 +1285,7 @@ mod tests {
             },
             tax: None,
             currency: "EUR".to_string(),
+            tax_optimizer: None,
         }
     }
 

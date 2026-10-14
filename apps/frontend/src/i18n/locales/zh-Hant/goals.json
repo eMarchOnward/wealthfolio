@@ -265,7 +265,9 @@
       "return_before_hint": "儲蓄期間的假設年報酬率，未扣除投資費用。",
       "return_during_hint": "開始提領後的假設年報酬率，未扣除投資費用。",
       "annual_fee_hint": "預估的年度投資費用。",
-      "inflation_hint": "假設的年度物價漲幅。"
+      "inflation_hint": "假設的年度物價漲幅。",
+      "tax_optimized": "稅務優化",
+      "mode_change_optimized": "您的退休年齡將成為固定的退休開始年齡，「稅務規劃」分頁會計算稅務優化的提領計畫。"
     },
     "spending": {
       "kicker": "支出",
@@ -463,7 +465,9 @@
     "target_date": "目標日期",
     "funding_hint": "建立後，你可以選取資金帳戶與每月投入金額。",
     "creating": "正在建立……",
-    "create_goal_button": "建立目標"
+    "create_goal_button": "建立目標",
+    "planner_tax_optimized": "稅務優化",
+    "planner_tax_optimized_hint": "找出使終身稅負最低的提領順序、Roth 轉換與申領年齡（美國）"
   },
   "guide": {
     "title": "退休指南",
@@ -589,7 +593,8 @@
     "tax_bucket": {
       "taxable": "應稅",
       "tax_deferred": "遞延稅",
-      "tax_free": "免稅"
+      "tax_free": "免稅",
+      "hsa": "HSA"
     }
   },
   "value_mode": {
@@ -920,6 +925,120 @@
         "label": "退休初期市場下跌",
         "description": "模型假設退休第一年市場下跌30%。"
       }
+    }
+  },
+  "tax_plan": {
+    "title": "稅務優化退休計畫",
+    "description": "計算應從哪些帳戶提領、何時轉換為 Roth 以及何時申領社會安全福利，以使終身美國聯邦稅最低。使用已儲存的計畫與目標的帳戶。",
+    "run": "最佳化",
+    "rerun": "重新最佳化",
+    "running": "正在最佳化…可能需要一分鐘",
+    "failed": "無法執行最佳化：{{message}}",
+    "stale": "此結果之後計畫已變更。請重新最佳化以更新。",
+    "infeasible": "這些帳戶無法支應這些支出。",
+    "approximate": "求解器已達時間上限，因此此計畫接近最佳，但未被證明為最佳。",
+    "chart": {
+      "age_label": "{{age}} 歲",
+      "sources": "每年資金來源",
+      "balances": "依稅務類型的餘額",
+      "conversions": "Roth 轉換、稅款與 Medicare"
+    },
+    "series": {
+      "wages": "薪資",
+      "social_security": "社會安全福利",
+      "other_income": "其他收入",
+      "taxable": "應稅帳戶",
+      "tax_deferred": "遞延課稅",
+      "roth": "Roth",
+      "spending": "支出",
+      "roth_conversion": "Roth 轉換",
+      "taxes": "聯邦稅",
+      "medicare": "Medicare",
+      "saved": "儲蓄",
+      "hsa": "HSA",
+      "gain_harvest": "實現的收益",
+      "state_tax": "州稅",
+      "employer_match": "雇主相對提撥",
+      "debt_payment": "債務還款"
+    },
+    "summary": {
+      "sustainable_spending": "可持續支出",
+      "per_year_today": "每年，以今日幣值計",
+      "estate": "稅後遺產",
+      "estate_hint": "計畫結束時留給繼承人，以今日幣值計",
+      "lifetime_tax": "終身聯邦稅",
+      "lifetime_medicare": "另加 Medicare 保費 {{amount}}",
+      "roth_conversions": "Roth 轉換總額",
+      "claim_age": "社會安全福利申領",
+      "claim_age_value": "{{age}} 歲 {{months}} 個月"
+    },
+    "table": {
+      "title": "年度行動計畫（今日幣值）",
+      "year": "年度",
+      "age": "年齡",
+      "working": "在職"
+    },
+    "settings": {
+      "title": "最佳化設定",
+      "objective": "目標",
+      "objective_max_bequest": "支應支出，留下最多遺產",
+      "objective_max_spending": "盡可能多地支出",
+      "bequest_floor": "至少留下（稅後）",
+      "social_security_stream": "社會安全福利收入來源",
+      "optimize_claim_age": "由最佳化選擇申領年齡",
+      "pre_tax_contribution": "稅前 401(k)（每年）",
+      "employer_contribution": "雇主提撥（每年）",
+      "roth_contribution": "Roth 提撥（每年）",
+      "taxable_contribution": "應稅投資（每年）",
+      "max_roth_conversion": "每年 Roth 轉換上限",
+      "heirs_tax_rate": "繼承人對 IRA 的稅率（%）",
+      "prior_magi": "近期 MAGI",
+      "prior_magi_help": "最近兩年的修正後調整總收入（決定 Medicare 附加費）；最好取自報稅表。留空則使用 {{amount}}（薪資減去稅前提撥）。",
+      "state": "州所得稅",
+      "no_state": "無",
+      "state_va": "維吉尼亞州",
+      "aca_benchmark_premium": "ACA 基準保費（每年）",
+      "hsa_contribution": "HSA 提撥（每年）",
+      "other_medical_expenses": "其他醫療費用（每年）",
+      "rule_of_55_balance": "55 歲規則：401(k) 餘額",
+      "sepp_start_age": "72(t) 付款：開始年齡",
+      "sepp_annual_payment": "72(t) 年度付款",
+      "harvest_gains": "在低稅年度實現收益",
+      "optimize_contributions": "最佳化在職期間的提撥",
+      "match_rate": "雇主相對提撥比例（%）",
+      "match_cap": "相對提撥上限（薪資的 %）",
+      "hsa_eligible": "高自付額醫療保險（可開 HSA）",
+      "roth_401k_available": "401(k) 提供 Roth",
+      "debts": "債務",
+      "add_debt": "新增債務",
+      "remove_debt": "移除",
+      "debt_label": "名稱",
+      "debt_balance": "餘額",
+      "debt_rate": "利率（%）",
+      "debt_payment": "每年還款",
+      "enter_social_security": "在下方輸入金額",
+      "social_security_monthly": "社會安全福利（每月）",
+      "social_security_claim_age": "社會安全福利申領年齡",
+      "optimize_claim_age_needs_benefit": "請先輸入社會安全福利。",
+      "salary": "年薪（稅前）",
+      "salary_growth": "年薪成長（%）"
+    },
+    "baseline": {
+      "title": "最佳化的價值",
+      "description": "與常規做法相比：先用應稅帳戶，再用遞延課稅帳戶，最後用 Roth，不做 Roth 轉換，並在計畫年齡申領社會安全福利。",
+      "infeasible": "常規做法完全無法支應此計畫；最佳化後的順序可以。",
+      "extra_estate": "稅後遺產增加",
+      "extra_spending": "每年可多支出",
+      "versus": "常規做法：{{amount}}"
+    },
+    "success": {
+      "title": "成功機率",
+      "description": "依計畫支出，在 1928 年以來的每段歷史市場序列或重新抽樣的年份上重新求解計畫。",
+      "run_historical": "歷史（1928 年以來）",
+      "running": "正在求解每條路徑…可能需要幾分鐘。",
+      "summary": "{{paths}} 條路徑中有 {{funded}} 條能支應每年 {{spending}}。",
+      "estates": "留下的遺產（第 10/50/90 百分位）：{{p10}} / {{p50}} / {{p90}}",
+      "failed_years": "從以下年份開始會耗盡：{{years}}"
     }
   }
 }

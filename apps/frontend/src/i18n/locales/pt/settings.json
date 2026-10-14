@@ -1464,8 +1464,6 @@
     "dialog_client_config_desc": "Configuração pronta para colar (contém este token). Funciona com Claude, Cursor, Windsurf e Cline; VS Code e outros clientes diferem; consulte a ajuda no cartão do servidor MCP.",
     "dialog_copy_config_aria": "Copiar a configuração do cliente",
     "dialog_done": "Concluído",
-    "scope_locked_title": "Requerido por Atividades: confirmar/gravar",
-    "scope_locked_market_data_title": "Requerido por Dados de mercado: gravar",
     "dialog_scope_aria": "{{label}}: {{description}}",
     "token_label": "Token",
     "scope": {

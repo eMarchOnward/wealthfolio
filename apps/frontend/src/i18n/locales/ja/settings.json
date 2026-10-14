@@ -1407,8 +1407,6 @@
     "dialog_client_config_desc": "そのまま貼り付けられる設定です(このトークンを含みます)。Claude、Cursor、Windsurf、Clineで利用できます。VS Codeなど他のクライアントは形式が異なるため、MCPサーバーのカード内のヘルプをご覧ください。",
     "dialog_copy_config_aria": "クライアント設定をコピー",
     "dialog_done": "完了",
-    "scope_locked_title": "「取引 — 確定/書き込み」に必要です",
-    "scope_locked_market_data_title": "「市場データ — 書き込み」に必要です",
     "dialog_scope_aria": "{{label}}: {{description}}",
     "token_label": "トークン",
     "scope": {

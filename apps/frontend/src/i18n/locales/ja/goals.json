@@ -265,7 +265,9 @@
       "return_before_hint": "積立期間中の想定年間利回り。運用手数料控除前です。",
       "return_during_hint": "取り崩し開始後の想定年間利回り。運用手数料控除前です。",
       "annual_fee_hint": "推定の年間ポートフォリオ手数料です。",
-      "inflation_hint": "想定される年間の物価上昇率。"
+      "inflation_hint": "想定される年間の物価上昇率。",
+      "tax_optimized": "税最適化",
+      "mode_change_optimized": "退職年齢は固定の退職開始年齢になり、「税金プラン」タブで税を最適化した引き出し計画を計算します。"
     },
     "spending": {
       "kicker": "支出",
@@ -463,7 +465,9 @@
     "target_date": "目標日",
     "funding_hint": "資金に充てる口座と毎月の積立額は作成後に設定できます。",
     "creating": "作成中...",
-    "create_goal_button": "目標を作成"
+    "create_goal_button": "目標を作成",
+    "planner_tax_optimized": "税最適化",
+    "planner_tax_optimized_hint": "生涯の税金を最小化する引き出し順序、Roth転換、受給開始年齢を求めます（米国）"
   },
   "guide": {
     "title": "リタイアメントガイド",
@@ -589,7 +593,8 @@
     "tax_bucket": {
       "taxable": "課税",
       "tax_deferred": "課税繰延",
-      "tax_free": "非課税"
+      "tax_free": "非課税",
+      "hsa": "HSA"
     }
   },
   "value_mode": {
@@ -917,6 +922,120 @@
         "label": "退職初期の市場急落",
         "description": "退職1年目に市場が30%下落するモデルです。"
       }
+    }
+  },
+  "tax_plan": {
+    "title": "税を最適化した退職計画",
+    "description": "生涯の米国連邦税を最小化するため、どの口座から引き出すか、いつRothへ転換するか、いつ社会保障を受給するかを求めます。保存済みの計画と目標の口座を使用します。",
+    "run": "最適化",
+    "rerun": "再最適化",
+    "running": "最適化中…1分ほどかかる場合があります",
+    "failed": "最適化を実行できませんでした: {{message}}",
+    "stale": "この結果以降に計画が変更されました。再最適化して更新してください。",
+    "infeasible": "これらの口座ではこの支出をまかなえる計画がありません。",
+    "approximate": "ソルバーが時間制限に達したため、この計画は最適に近いものの、最適性は証明されていません。",
+    "chart": {
+      "age_label": "{{age}}歳",
+      "sources": "毎年の資金の出どころ",
+      "balances": "税区分別の残高",
+      "conversions": "Roth転換、税金、Medicare"
+    },
+    "series": {
+      "wages": "給与",
+      "social_security": "社会保障",
+      "other_income": "その他の収入",
+      "taxable": "課税口座",
+      "tax_deferred": "課税繰延",
+      "roth": "Roth",
+      "spending": "支出",
+      "roth_conversion": "Roth転換",
+      "taxes": "連邦税",
+      "medicare": "Medicare",
+      "saved": "貯蓄",
+      "hsa": "HSA",
+      "gain_harvest": "利益確定",
+      "state_tax": "州税",
+      "employer_match": "雇用主マッチング",
+      "debt_payment": "債務返済"
+    },
+    "summary": {
+      "sustainable_spending": "持続可能な支出",
+      "per_year_today": "年額、現在価値",
+      "estate": "税引後の遺産",
+      "estate_hint": "計画終了時に相続人へ残る額（現在価値）",
+      "lifetime_tax": "生涯の連邦税",
+      "lifetime_medicare": "加えてMedicare保険料 {{amount}}",
+      "roth_conversions": "Roth転換の合計",
+      "claim_age": "社会保障の受給開始",
+      "claim_age_value": "{{age}}歳{{months}}か月"
+    },
+    "table": {
+      "title": "年次プラン（現在価値）",
+      "year": "年",
+      "age": "年齢",
+      "working": "就労中"
+    },
+    "settings": {
+      "title": "最適化の設定",
+      "objective": "目標",
+      "objective_max_bequest": "支出をまかない、最大限を残す",
+      "objective_max_spending": "できるだけ多く使う",
+      "bequest_floor": "最低限残す額（税引後）",
+      "social_security_stream": "社会保障の収入源",
+      "optimize_claim_age": "受給開始年齢を最適化に任せる",
+      "pre_tax_contribution": "税引前401(k)（年額）",
+      "employer_contribution": "雇用主拠出（年額）",
+      "roth_contribution": "Roth拠出（年額）",
+      "taxable_contribution": "課税口座への投資（年額）",
+      "max_roth_conversion": "Roth転換の年間上限",
+      "heirs_tax_rate": "相続人のIRA税率（%）",
+      "prior_magi": "直近のMAGI",
+      "prior_magi_help": "過去2年間の修正AGI（Medicare追加保険料を決定）。確定申告書から取るのが最適です。空欄の場合は {{amount}}（給与から税引前拠出を差し引いた額）。",
+      "state": "州所得税",
+      "no_state": "なし",
+      "state_va": "バージニア州",
+      "aca_benchmark_premium": "ACA基準保険料（年額）",
+      "hsa_contribution": "HSA拠出（年額）",
+      "other_medical_expenses": "その他の医療費（年額）",
+      "rule_of_55_balance": "55歳ルール：401(k)残高",
+      "sepp_start_age": "72(t)支払い：開始年齢",
+      "sepp_annual_payment": "72(t)年間支払額",
+      "harvest_gains": "低税率の年に利益確定する",
+      "optimize_contributions": "就労中の拠出を最適化する",
+      "match_rate": "雇用主マッチ率（%）",
+      "match_cap": "マッチ上限（給与の%）",
+      "hsa_eligible": "高免責額の医療保険（HSA可）",
+      "roth_401k_available": "401(k)でRothが利用可能",
+      "debts": "債務",
+      "add_debt": "債務を追加",
+      "remove_debt": "削除",
+      "debt_label": "名前",
+      "debt_balance": "残高",
+      "debt_rate": "金利（%）",
+      "debt_payment": "年間返済額",
+      "enter_social_security": "下に金額を入力",
+      "social_security_monthly": "社会保障（月額）",
+      "social_security_claim_age": "社会保障の受給開始年齢",
+      "optimize_claim_age_needs_benefit": "先に社会保障の給付額を入力してください。",
+      "salary": "年収（税引前）",
+      "salary_growth": "年間昇給率（%）"
+    },
+    "baseline": {
+      "title": "最適化の効果",
+      "description": "一般的な目安との比較：課税口座、課税繰延口座、Rothの順に取り崩し、Roth転換なし、社会保障は予定年齢で受給。",
+      "infeasible": "一般的な目安ではこの計画をまかなえませんが、最適化した順序なら可能です。",
+      "extra_estate": "税引後遺産の増加",
+      "extra_spending": "年間支出の増加",
+      "versus": "一般的な目安: {{amount}}"
+    },
+    "success": {
+      "title": "成功確率",
+      "description": "計画支出で、1928年以降のすべての歴史的な市場推移、または再抽出した年で計画を解き直します。",
+      "run_historical": "過去データ（1928年以降）",
+      "running": "各パスを計算中…数分かかる場合があります。",
+      "summary": "{{paths}}本中{{funded}}本のパスで年{{spending}}をまかなえます。",
+      "estates": "残る遺産（10／50／90パーセンタイル）：{{p10}} / {{p50}} / {{p90}}",
+      "failed_years": "資金が尽きた開始年：{{years}}"
     }
   }
 }

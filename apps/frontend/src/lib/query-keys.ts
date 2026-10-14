@@ -41,6 +41,8 @@ export const QueryKeys = {
   goalFunding: (id: string) => [QueryKeys.GOAL_FUNDING, id],
   RETIREMENT_OVERVIEW: "retirementOverview",
   retirementOverview: (id: string) => [QueryKeys.RETIREMENT_OVERVIEW, id],
+  RETIREMENT_TAX_ACCOUNTS: "retirementTaxAccounts",
+  retirementTaxAccounts: (id: string) => [QueryKeys.RETIREMENT_TAX_ACCOUNTS, id],
   SAVE_UP_OVERVIEW: "saveUpOverview",
   saveUpOverview: (id: string) => [QueryKeys.SAVE_UP_OVERVIEW, id],
   SAVE_UP_PREVIEW: "saveUpPreview",

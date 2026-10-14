@@ -14,6 +14,12 @@ vi.mock("@/lib/settings-provider", () => ({
   useSettingsContext: () => ({ settings: mocks.settings }),
 }));
 vi.mock("../hooks/use-goals", () => ({ useGoals: () => ({ goals: [] }) }));
+vi.mock("../hooks/use-home-link", () => ({
+  useRetirementHomeLink: () => ({
+    linkedHomeId: null,
+    link: { mutate: vi.fn(), isPending: false },
+  }),
+}));
 vi.mock("../hooks/use-create-goal-flow", () => ({
   useCreateGoalFlow: () => ({ mutate: mocks.mutate, isPending: false }),
 }));

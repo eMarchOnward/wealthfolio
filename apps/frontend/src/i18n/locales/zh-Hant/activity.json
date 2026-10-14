@@ -305,6 +305,7 @@
   "page": {
     "import_from_csv": "從 CSV 匯入",
     "transfer_holdings": "移轉持有部位",
+    "link_matching_transfers": "連結相符的轉帳",
     "add_personal_asset": "新增個人資產",
     "add_activities": "新增交易紀錄",
     "ask_ai_categorize": "請 AI 分類",

@@ -16,6 +16,7 @@ import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import { GoalCard } from "../components/goal-card";
 import { useGoals } from "../hooks/use-goals";
+import { useRetirementHomeLink } from "../hooks/use-home-link";
 
 function StatBlock({ label, value }: { label: string; value: React.ReactNode }) {
   return (
@@ -68,10 +69,15 @@ function SummaryStats({ goals }: { goals: Goal[] }) {
 }
 
 function GoalGrid({ goals }: { goals: Goal[] }) {
+  const { linkedHomeId } = useRetirementHomeLink();
   return (
     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
       {goals.map((goal) => (
-        <GoalCard key={goal.id} goal={goal} />
+        <GoalCard
+          key={goal.id}
+          goal={goal}
+          plannedWithRetirement={goal.goalType === "home" && goal.id === linkedHomeId}
+        />
       ))}
     </div>
   );

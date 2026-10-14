@@ -1,0 +1,19 @@
+[package]
+name = "wealthfolio-optimization-engine"
+version.workspace = true
+edition.workspace = true
+description = "Headless MILP retirement-income optimizer (Rust port of Owl's planning model)"
+license.workspace = true
+
+[dependencies]
+serde = { workspace = true }
+thiserror = { workspace = true }
+log = { workspace = true }
+# Algebraic MILP modelling; HiGHS (C++) is compiled from source via CMake.
+good_lp = { version = "1", default-features = false, features = ["highs"] }
+
+[lints]
+workspace = true
+
+[dev-dependencies]
+serde_json = { workspace = true }

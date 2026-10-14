@@ -1424,8 +1424,6 @@
     "dialog_client_config_desc": "可直接貼上的設定，內含此權杖。適用於 Claude、Cursor、Windsurf 與 Cline；VS Code 和其他用戶端的設定方式不同，請參閱 MCP 伺服器卡片中的說明。",
     "dialog_copy_config_aria": "複製用戶端設定",
     "dialog_done": "完成",
-    "scope_locked_title": "「交易紀錄 — 提交／寫入」需要此權限",
-    "scope_locked_market_data_title": "「市場資料 — 寫入」需要此權限",
     "dialog_scope_aria": "{{label}}：{{description}}",
     "token_label": "權杖",
     "scope": {

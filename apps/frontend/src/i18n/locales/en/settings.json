@@ -1384,8 +1384,7 @@
     "dialog_client_config_desc": "Ready-to-paste config (contains this token). Works with Claude, Cursor, Windsurf, and Cline; VS Code and other clients differ — see the help in the MCP server card.",
     "dialog_copy_config_aria": "Copy client configuration",
     "dialog_done": "Done",
-    "scope_locked_title": "Required by Activities — commit/write",
-    "scope_locked_market_data_title": "Required by Market data — write",
+    "scope_locked_by_title": "Required by {{label}}",
     "dialog_scope_aria": "{{label}}: {{description}}",
     "token_label": "Token",
     "scope": {
@@ -1417,13 +1416,17 @@
         "label": "Classification (read)",
         "description": "Read instrument classifications and taxonomies."
       },
+      "spending_read": {
+        "label": "Spending (read)",
+        "description": "Read spending reports, budgets, events, transaction categories and rules."
+      },
       "activities_draft": {
         "label": "Activities — draft",
         "description": "Prepare draft activities for review (not committed)."
       },
       "activities_write": {
         "label": "Activities — commit/write",
-        "description": "Commit activities and link or unlink transfers. Requires the draft scope."
+        "description": "Commit, change and delete activities, and link or unlink transfers. Requires the draft scope."
       },
       "classification_suggest": {
         "label": "Classification — suggest",
@@ -1431,18 +1434,43 @@
       },
       "classification_write": {
         "label": "Classification — apply/write",
-        "description": "Apply reviewed classification drafts. Requires the suggest scope."
+        "description": "Apply reviewed classification drafts and change taxonomy categories. Requires the suggest scope."
       },
       "market_data_write": {
         "label": "Market data — write",
-        "description": "Save reviewed prices (quotes) for existing assets. Requires the holdings read scope."
+        "description": "Save reviewed prices, fetch market data, and change exchange rates and asset profiles. Requires the holdings read scope."
+      },
+      "planning_run": {
+        "label": "Planning — run",
+        "description": "Run retirement projections, simulations and the tax-optimized plan; calculations only, nothing is saved. Requires the financial planning read scope."
+      },
+      "accounts_write": {
+        "label": "Accounts — write",
+        "description": "Create, change and delete accounts, portfolios and contribution limits. Requires the accounts read scope."
+      },
+      "goals_write": {
+        "label": "Goals — write",
+        "description": "Create, change and delete goals, their funding and their plan settings. Requires the financial planning read scope."
+      },
+      "spending_write": {
+        "label": "Spending — write",
+        "description": "Categorize and split transactions, and change budgets, events, rules and spending settings. Requires the spending read scope."
+      },
+      "portfolio_write": {
+        "label": "Portfolio — write",
+        "description": "Change allocation targets and alternative assets such as property, vehicles and loans. Requires the holdings read scope."
+      },
+      "health_write": {
+        "label": "Health — write",
+        "description": "Dismiss and restore health issues. Requires the health read scope."
       }
     },
     "preset": {
       "read_only": "Read-only",
       "read_activity_draft": "Read + draft",
       "read_activity_write": "Read + write",
-      "read_activity_write_classification_suggest": "Read + write + classify"
+      "read_activity_write_classification_suggest": "Read + write + classify",
+      "full_access": "Full access"
     },
     "copied_generic": "{{label}} copied to clipboard.",
     "hero_aria": "AI Agent Access status",

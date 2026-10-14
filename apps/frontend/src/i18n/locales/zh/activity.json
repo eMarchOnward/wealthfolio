@@ -304,6 +304,7 @@
   "page": {
     "import_from_csv": "从 CSV 导入",
     "transfer_holdings": "转移持仓",
+    "link_matching_transfers": "关联匹配的转账",
     "add_personal_asset": "添加个人资产",
     "add_activities": "添加活动",
     "ask_ai_categorize": "让 AI 分类",

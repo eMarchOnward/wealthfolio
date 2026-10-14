@@ -74,6 +74,16 @@ export function useGoalPlanMutations(goalId: string) {
     onError: () => toast.error("Failed to save plan."),
   });
 
+  // Background saves (Tax Plan results and cases): no toast, and only the plan
+  // itself is refetched; the inputs the overview and summary use are unchanged.
+  const savePlanQuietlyMutation = useMutation({
+    mutationFn: (plan: SaveGoalPlan) => saveGoalPlan(plan),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: QueryKeys.goalPlan(goalId) });
+    },
+    onError: () => toast.error("Failed to save plan."),
+  });
+
   const saveFundingMutation = useMutation({
     mutationFn: (rules: GoalFundingRuleInput[]) => saveGoalFunding(goalId, rules),
     onSuccess: () => {
@@ -91,7 +101,7 @@ export function useGoalPlanMutations(goalId: string) {
     },
   });
 
-  return { savePlanMutation, saveFundingMutation, refreshSummaryMutation };
+  return { savePlanMutation, savePlanQuietlyMutation, saveFundingMutation, refreshSummaryMutation };
 }
 
 export function useRetirementOverview(goalId: string | undefined) {

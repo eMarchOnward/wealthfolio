@@ -305,6 +305,7 @@
   "page": {
     "import_from_csv": "Import from CSV",
     "transfer_holdings": "Transfer Holdings",
+    "link_matching_transfers": "Link Matching Transfers",
     "add_personal_asset": "Add Personal Asset",
     "add_activities": "Add Activities",
     "ask_ai_categorize": "Ask AI to categorize",

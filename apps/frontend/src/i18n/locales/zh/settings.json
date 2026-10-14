@@ -1407,8 +1407,6 @@
     "dialog_client_config_desc": "可直接粘贴的配置（包含此令牌）。适用于 Claude、Cursor、Windsurf 和 Cline；VS Code 和其他客户端有所不同——请参阅 MCP 服务器卡片中的帮助。",
     "dialog_copy_config_aria": "复制客户端配置",
     "dialog_done": "完成",
-    "scope_locked_title": "由“活动”所需——提交/写入",
-    "scope_locked_market_data_title": "由“市场数据——写入”所需",
     "dialog_scope_aria": "{{label}}：{{description}}",
     "token_label": "令牌",
     "scope": {

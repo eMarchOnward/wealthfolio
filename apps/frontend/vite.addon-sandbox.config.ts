@@ -32,6 +32,8 @@ export default defineConfig({
   },
   build: {
     assetsInlineLimit: 20 * 1024 * 1024,
+    // The runtime is deliberately one inlined bundle; it cannot be code-split.
+    chunkSizeWarningLimit: 4 * 1024,
     copyPublicDir: false,
     cssCodeSplit: false,
     emptyOutDir: !process.argv.includes("--watch"),
@@ -40,6 +42,14 @@ export default defineConfig({
     target: ["chrome107", "edge107", "firefox104", "safari16"],
     rollupOptions: {
       input: path.resolve(__dirname, "src/addons/iframe/addon-sandbox-entry.tsx"),
+      onwarn(warning, warn) {
+        // Rollup drops the "use client" directives in @wealthfolio/ui and then
+        // fails to map that warning back to the source, once per file.
+        if (warning.code === "MODULE_LEVEL_DIRECTIVE" || warning.code === "SOURCEMAP_ERROR") {
+          return;
+        }
+        warn(warning);
+      },
       output: {
         assetFileNames: (assetInfo) =>
           assetInfo.names.some((name) => name.endsWith(".css"))

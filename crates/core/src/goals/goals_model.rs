@@ -1,6 +1,6 @@
 //! Goals domain models.
 
-use crate::planning::retirement::{RetirementPlan, RetirementTimingMode};
+use crate::planning::retirement::{RetirementPlan, RetirementTimingMode, TaxOptimizerAccounts};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -115,5 +115,28 @@ pub struct PreparedRetirementSimulationInput {
     pub planner_mode: RetirementTimingMode,
 }
 
+/// What the tax-optimized plan of a retirement goal solves: the goal's plan
+/// (with its linked home purchase) and starting accounts, as of `as_of`.
+#[derive(Debug, Clone)]
+pub struct TaxPlanInput {
+    pub plan: RetirementPlan,
+    pub accounts: TaxOptimizerAccounts,
+    pub as_of: chrono::NaiveDate,
+}
+
 /// Account valuations map: account_id → total value in base currency
 pub type AccountValuationMap = HashMap<String, f64>;
+
+/// An account's holdings by broad asset class, in base currency.
+#[derive(Debug, Clone, Copy, Default, PartialEq)]
+pub struct AccountAssetValues {
+    /// Equity, real estate, commodities, alternatives and digital assets.
+    pub stocks: f64,
+    pub fixed_income: f64,
+    pub cash: f64,
+    /// Holdings without an asset class.
+    pub unclassified: f64,
+}
+
+/// Holdings by asset class: account_id → values in base currency.
+pub type AccountAssetMap = HashMap<String, AccountAssetValues>;

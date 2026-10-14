@@ -1,15 +1,27 @@
 use crate::accounts::{account_supports_purpose, Account, AccountPurpose, AccountServiceTrait};
 use crate::errors::Result;
 use crate::goals::goals_model::{
-    AccountValuationMap, Goal, GoalFundingRule, GoalFundingRuleInput, GoalPlan, GoalSummaryUpdate,
-    NewGoal, PreparedRetirementSimulationInput, SaveGoalPlan,
+    AccountAssetMap, AccountAssetValues, AccountValuationMap, Goal, GoalFundingRule,
+    GoalFundingRuleInput, GoalPlan, GoalSummaryUpdate, NewGoal, PreparedRetirementSimulationInput,
+    SaveGoalPlan, TaxPlanInput,
 };
 use crate::goals::goals_traits::{GoalRepositoryTrait, GoalServiceTrait};
+
+/// The stored planner mode of the tax-optimized retirement style.
+const PLANNER_MODE_OPTIMIZED: &str = "optimized";
 use crate::planning::retirement::{
-    normalize_retirement_plan_ages, try_compute_required_capital, RetirementPlan,
-    RetirementTimingMode, TaxBucketBalances, TaxProfile,
+    end_items_at_home_purchase, move_housing_to_expenses, normalize_retirement_plan_ages,
+    optimize_tax_plan, tax_plan_choice_costs, tax_plan_conversion_regret, tax_plan_safe_spending,
+    tax_plan_stress_tests, tax_plan_success, try_compute_required_capital, AssetMix, BucketMixes,
+    RetirementPlan, RetirementTimingMode, SuccessPathMode, TaxBucketBalances, TaxOptimizedPlan,
+    TaxOptimizerAccounts, TaxPlanChoiceCosts, TaxPlanConversionRegret, TaxPlanSafeSpending,
+    TaxPlanStressTests, TaxPlanSuccess, TaxProfile,
 };
-use crate::planning::{validate_save_up_input, SaveUpInput, SaveUpOverview};
+use crate::planning::{
+    home_purchase_from_settings, validate_save_up_input, LinkedHomePurchase, SaveUpInput,
+    SaveUpOverview,
+};
+use crate::portfolio::allocation::AllocationServiceTrait;
 use crate::portfolio::fire::{compute_retirement_overview_with_mode, RetirementOverview};
 use crate::utils::time_utils::{parse_user_timezone_or_default, user_today};
 use async_trait::async_trait;
@@ -214,6 +226,7 @@ fn is_supported_tax_bucket(tax_bucket: Option<&str>) -> bool {
             | Some("tax-deferred")
             | Some("tax_free")
             | Some("tax-free")
+            | Some("hsa")
     )
 }
 
@@ -227,7 +240,11 @@ fn compute_tax_bucket_balances(
             let share_value = (value * rule.share_percent / 100.0).max(0.0);
             match rule.tax_bucket.as_deref() {
                 Some("tax_deferred") | Some("tax-deferred") => balances.tax_deferred += share_value,
-                Some("tax_free") | Some("tax-free") => balances.tax_free += share_value,
+                // Qualified HSA withdrawals are tax-free; the tax-optimized style
+                // models the HSA as its own account.
+                Some("tax_free") | Some("tax-free") | Some("hsa") => {
+                    balances.tax_free += share_value
+                }
                 Some("taxable") | None => balances.taxable += share_value,
                 Some(unknown) => {
                     log::warn!(
@@ -240,6 +257,157 @@ fn compute_tax_bucket_balances(
         }
     }
     balances
+}
+
+/// The goal's share of the accounts marked as HSAs.
+fn hsa_balance(funding_rules: &[GoalFundingRule], valuations: &AccountValuationMap) -> f64 {
+    funding_rules
+        .iter()
+        .filter(|rule| rule.tax_bucket.as_deref() == Some("hsa"))
+        .filter_map(|rule| {
+            let value = valuations.get(&rule.account_id)?.max(0.0);
+            Some(value * rule.share_percent / 100.0)
+        })
+        .sum()
+}
+
+/// Top-level `asset_classes` categories the tax-optimized plan counts as stocks.
+const STOCK_LIKE_ASSET_CLASSES: [&str; 5] = [
+    "EQUITY",
+    "REAL_ESTATE",
+    "COMMODITIES",
+    "ALTERNATIVES",
+    "DIGITAL_ASSETS",
+];
+
+/// Each account's holdings by asset class (the `asset_classes` taxonomy, rolled
+/// up to its top level): the `asset_map` for
+/// [`GoalServiceTrait::optimize_retirement_tax_plan`].
+pub async fn account_asset_map(
+    allocation: &dyn AllocationServiceTrait,
+    account_ids: &[String],
+    base_currency: &str,
+) -> Result<AccountAssetMap> {
+    use rust_decimal::prelude::ToPrimitive;
+    let mut map = AccountAssetMap::new();
+    for id in account_ids {
+        let contributions = allocation
+            .get_holding_contributions_for_taxonomy_for_accounts(
+                std::slice::from_ref(id),
+                base_currency,
+                "asset_classes",
+                id,
+            )
+            .await?;
+        let mut values = AccountAssetValues::default();
+        for c in &contributions.contributions {
+            let value = c.value.to_f64().unwrap_or(0.0).max(0.0);
+            match c.category_id.as_str() {
+                "CASH" => values.cash += value,
+                "FIXED_INCOME" => values.fixed_income += value,
+                class if STOCK_LIKE_ASSET_CLASSES.contains(&class) => values.stocks += value,
+                _ => values.unclassified += value,
+            }
+        }
+        map.insert(id.clone(), values);
+    }
+    Ok(map)
+}
+
+/// The asset mix of `values`: unclassified holdings count as stocks, and fixed
+/// income is split evenly between corporate bonds and Treasury notes.
+fn asset_mix(values: &AccountAssetValues) -> AssetMix {
+    AssetMix {
+        stocks: values.stocks + values.unclassified,
+        bonds: values.fixed_income / 2.0,
+        notes: values.fixed_income / 2.0,
+        cash: values.cash,
+    }
+}
+
+fn add_values(total: &mut AccountAssetValues, values: &AccountAssetValues, share: f64) {
+    total.stocks += values.stocks * share;
+    total.fixed_income += values.fixed_income * share;
+    total.cash += values.cash * share;
+    total.unclassified += values.unclassified * share;
+}
+
+/// Each bucket's asset mix from the goal's share of its accounts' holdings
+/// (a bucket without holdings takes the goal's overall mix), and the value of
+/// holdings without an asset class. `None` when no account has holdings.
+fn bucket_mixes(
+    funding_rules: &[GoalFundingRule],
+    assets: &AccountAssetMap,
+) -> (Option<BucketMixes>, f64) {
+    let mut buckets = [AccountAssetValues::default(); 4];
+    let mut overall = AccountAssetValues::default();
+    for rule in funding_rules {
+        let Some(values) = assets.get(&rule.account_id) else {
+            continue;
+        };
+        let share = rule.share_percent.max(0.0) / 100.0;
+        let bucket = match rule.tax_bucket.as_deref() {
+            Some("tax_deferred") | Some("tax-deferred") => 1,
+            Some("tax_free") | Some("tax-free") => 2,
+            Some("hsa") => 3,
+            _ => 0,
+        };
+        add_values(&mut buckets[bucket], values, share);
+        add_values(&mut overall, values, share);
+    }
+    let Some(overall_mix) = asset_mix(&overall).normalized() else {
+        return (None, 0.0);
+    };
+    let [taxable, tax_deferred, roth, hsa] =
+        buckets.map(|values| asset_mix(&values).normalized().unwrap_or(overall_mix));
+    (
+        Some(BucketMixes {
+            taxable,
+            tax_deferred,
+            roth,
+            hsa,
+        }),
+        overall.unclassified,
+    )
+}
+
+/// Each account's cost basis in base currency from its latest daily valuation,
+/// with cash at full value: the `cost_basis_map` for
+/// [`GoalServiceTrait::optimize_retirement_tax_plan`].
+pub fn cost_basis_map(
+    valuations: &[crate::portfolio::valuation::DailyAccountValuation],
+) -> AccountValuationMap {
+    use rust_decimal::prelude::ToPrimitive;
+    valuations
+        .iter()
+        .filter_map(|v| {
+            let basis = (v.cost_basis_base + v.cash_balance_base).to_f64()?;
+            Some((v.account_id.clone(), basis))
+        })
+        .collect()
+}
+
+/// Cost basis of the goal's share of its taxable accounts. An account without a
+/// known basis counts at full value (no unrealized gain), and a basis never
+/// exceeds the value it belongs to.
+fn taxable_cost_basis(
+    funding_rules: &[GoalFundingRule],
+    valuations: &AccountValuationMap,
+    cost_basis: &AccountValuationMap,
+) -> f64 {
+    funding_rules
+        .iter()
+        .filter(|rule| matches!(rule.tax_bucket.as_deref(), Some("taxable") | None))
+        .filter_map(|rule| {
+            let value = valuations.get(&rule.account_id)?.max(0.0);
+            let basis = cost_basis
+                .get(&rule.account_id)
+                .copied()
+                .unwrap_or(value)
+                .clamp(0.0, value);
+            Some(basis * rule.share_percent / 100.0)
+        })
+        .sum()
 }
 
 pub fn validate_retirement_plan(plan: &RetirementPlan) -> Result<()> {
@@ -496,6 +664,33 @@ impl<T: GoalRepositoryTrait> GoalService<T> {
         normalize_retirement_plan_ages(&mut retirement_plan, as_of);
         validate_retirement_plan(&retirement_plan)?;
 
+        let mut funding_rules = funding_rules;
+        move_housing_to_expenses(&mut retirement_plan);
+        let home_goal_id = retirement_plan
+            .tax_optimizer
+            .as_ref()
+            .and_then(|settings| settings.home_goal_id.clone());
+        match self.linked_home(home_goal_id.as_deref(), &funding_rules) {
+            Ok(Some((home, home_rules))) => {
+                let current_age = retirement_plan.personal.current_age;
+                if let Some(age) = home.purchase_age(current_age, as_of) {
+                    end_items_at_home_purchase(&mut retirement_plan.expenses, age);
+                }
+                // The tax-optimized style models the purchase itself (see
+                // `tax_optimizer_input`); the FIRE and Traditional styles see
+                // it as expenses, with any savings the home goal holds in the
+                // portfolio.
+                if stored_plan.planner_mode.as_deref() != Some(PLANNER_MODE_OPTIMIZED) {
+                    let items = home.expense_items(current_age, as_of);
+                    retirement_plan.expenses.items.extend(items);
+                    funding_rules.extend(home_rules);
+                }
+            }
+            Ok(None) => {}
+            // An unfinished home goal must not break the retirement plan.
+            Err(err) => log::warn!("Linked home goal left out of the plan: {err}"),
+        }
+
         let current_portfolio = compute_goal_value_from_shares(&funding_rules, valuation_map);
         let bucket_balances = compute_tax_bucket_balances(&funding_rules, valuation_map);
 
@@ -515,6 +710,101 @@ impl<T: GoalRepositoryTrait> GoalService<T> {
             current_portfolio,
             planner_mode,
         })
+    }
+
+    /// The purchase of the active home goal `home_goal_id` and its funding
+    /// rules, each in the bucket the retirement goal gives that account (the
+    /// down payment savings join the plan's accounts). `None` when no active
+    /// home goal is linked.
+    fn linked_home(
+        &self,
+        home_goal_id: Option<&str>,
+        retirement_rules: &[GoalFundingRule],
+    ) -> Result<Option<(LinkedHomePurchase, Vec<GoalFundingRule>)>> {
+        let Some(id) = home_goal_id else {
+            return Ok(None);
+        };
+        let Ok(goal) = self.goal_repo.load_goal(id) else {
+            return Ok(None);
+        };
+        if goal.goal_type != "home" || goal.status_lifecycle != GOAL_LIFECYCLE_ACTIVE {
+            return Ok(None);
+        }
+        let settings_json = self
+            .goal_repo
+            .load_goal_plan(id)?
+            .map(|plan| plan.settings_json)
+            .unwrap_or_default();
+        let purchase = home_purchase_from_settings(&settings_json).ok_or_else(|| {
+            crate::errors::ValidationError::InvalidInput(format!(
+                "Enter the home's price and mortgage on the \"{}\" goal, or unlink it",
+                goal.title
+            ))
+        })?;
+        let target_date = goal
+            .target_date
+            .clone()
+            .filter(|d| !d.is_empty())
+            .or_else(|| {
+                serde_json::from_str::<serde_json::Value>(&settings_json)
+                    .ok()
+                    .and_then(|v| v.get("targetDate")?.as_str().map(str::to_string))
+            });
+        let rules = self
+            .goal_repo
+            .load_funding_rules(id)?
+            .into_iter()
+            .map(|mut rule| {
+                rule.tax_bucket = retirement_rules
+                    .iter()
+                    .find(|r| r.account_id == rule.account_id)
+                    .and_then(|r| r.tax_bucket.clone());
+                rule
+            })
+            .collect();
+        Ok(Some((
+            LinkedHomePurchase {
+                goal_title: goal.title,
+                purchase,
+                target_date,
+            },
+            rules,
+        )))
+    }
+
+    /// The saved plan and the goal's accounts by tax treatment, for the
+    /// tax-optimized style.
+    fn tax_optimizer_input(
+        &self,
+        goal_id: &str,
+        valuation_map: &AccountValuationMap,
+        cost_basis_map: &AccountValuationMap,
+        asset_map: &AccountAssetMap,
+    ) -> Result<(RetirementPlan, TaxOptimizerAccounts, NaiveDate)> {
+        let as_of = self.today();
+        let mut prepared = self.prepare_retirement_input(goal_id, valuation_map, as_of)?;
+        let mut funding_rules = self.goal_repo.load_funding_rules(goal_id)?;
+        if let Some(settings) = prepared.plan.tax_optimizer.as_mut() {
+            if let Some((home, home_rules)) =
+                self.linked_home(settings.home_goal_id.as_deref(), &funding_rules)?
+            {
+                settings.home_purchase = Some(home);
+                funding_rules.extend(home_rules);
+            }
+        }
+        let buckets = compute_tax_bucket_balances(&funding_rules, valuation_map);
+        let hsa = hsa_balance(&funding_rules, valuation_map);
+        let (mixes, unclassified) = bucket_mixes(&funding_rules, asset_map);
+        let accounts = TaxOptimizerAccounts {
+            taxable: buckets.taxable,
+            taxable_cost_basis: taxable_cost_basis(&funding_rules, valuation_map, cost_basis_map),
+            tax_deferred: buckets.tax_deferred,
+            roth: (buckets.tax_free - hsa).max(0.0),
+            hsa,
+            mixes,
+            unclassified,
+        };
+        Ok((prepared.plan, accounts, as_of))
     }
 }
 
@@ -914,6 +1204,131 @@ impl<T: GoalRepositoryTrait + Send + Sync> GoalServiceTrait for GoalService<T> {
         self.prepare_retirement_input(goal_id, valuation_map, self.today())
     }
 
+    async fn retirement_tax_plan_accounts(
+        &self,
+        goal_id: &str,
+        valuation_map: &AccountValuationMap,
+        cost_basis_map: &AccountValuationMap,
+        asset_map: &AccountAssetMap,
+    ) -> Result<TaxOptimizerAccounts> {
+        let (_, accounts, _) =
+            self.tax_optimizer_input(goal_id, valuation_map, cost_basis_map, asset_map)?;
+        Ok(accounts)
+    }
+
+    async fn retirement_tax_plan_input(
+        &self,
+        goal_id: &str,
+        valuation_map: &AccountValuationMap,
+        cost_basis_map: &AccountValuationMap,
+        asset_map: &AccountAssetMap,
+    ) -> Result<TaxPlanInput> {
+        let (plan, accounts, as_of) =
+            self.tax_optimizer_input(goal_id, valuation_map, cost_basis_map, asset_map)?;
+        Ok(TaxPlanInput {
+            plan,
+            accounts,
+            as_of,
+        })
+    }
+
+    async fn optimize_retirement_tax_plan(
+        &self,
+        goal_id: &str,
+        valuation_map: &AccountValuationMap,
+        cost_basis_map: &AccountValuationMap,
+        asset_map: &AccountAssetMap,
+    ) -> Result<TaxOptimizedPlan> {
+        let (plan, accounts, as_of) =
+            self.tax_optimizer_input(goal_id, valuation_map, cost_basis_map, asset_map)?;
+        crate::portfolio::coordinator::blocking(move || optimize_tax_plan(&plan, &accounts, as_of))
+            .await
+    }
+
+    async fn retirement_tax_plan_success(
+        &self,
+        goal_id: &str,
+        valuation_map: &AccountValuationMap,
+        cost_basis_map: &AccountValuationMap,
+        asset_map: &AccountAssetMap,
+        mode: SuccessPathMode,
+        retirement_age: Option<u32>,
+    ) -> Result<TaxPlanSuccess> {
+        let (plan, accounts, as_of) =
+            self.tax_optimizer_input(goal_id, valuation_map, cost_basis_map, asset_map)?;
+        crate::portfolio::coordinator::blocking(move || {
+            tax_plan_success(&plan, &accounts, as_of, mode, retirement_age)
+        })
+        .await
+    }
+
+    async fn retirement_tax_plan_safe_spending(
+        &self,
+        goal_id: &str,
+        valuation_map: &AccountValuationMap,
+        cost_basis_map: &AccountValuationMap,
+        asset_map: &AccountAssetMap,
+        mode: SuccessPathMode,
+        retirement_age: Option<u32>,
+        target_rate: f64,
+    ) -> Result<TaxPlanSafeSpending> {
+        let (plan, accounts, as_of) =
+            self.tax_optimizer_input(goal_id, valuation_map, cost_basis_map, asset_map)?;
+        crate::portfolio::coordinator::blocking(move || {
+            tax_plan_safe_spending(&plan, &accounts, as_of, mode, retirement_age, target_rate)
+        })
+        .await
+    }
+
+    async fn retirement_tax_plan_choice_costs(
+        &self,
+        goal_id: &str,
+        valuation_map: &AccountValuationMap,
+        cost_basis_map: &AccountValuationMap,
+        asset_map: &AccountAssetMap,
+        retirement_age: Option<u32>,
+    ) -> Result<TaxPlanChoiceCosts> {
+        let (plan, accounts, as_of) =
+            self.tax_optimizer_input(goal_id, valuation_map, cost_basis_map, asset_map)?;
+        crate::portfolio::coordinator::blocking(move || {
+            tax_plan_choice_costs(&plan, &accounts, as_of, retirement_age)
+        })
+        .await
+    }
+
+    async fn retirement_tax_plan_stress_tests(
+        &self,
+        goal_id: &str,
+        valuation_map: &AccountValuationMap,
+        cost_basis_map: &AccountValuationMap,
+        asset_map: &AccountAssetMap,
+        retirement_age: Option<u32>,
+    ) -> Result<TaxPlanStressTests> {
+        let (plan, accounts, as_of) =
+            self.tax_optimizer_input(goal_id, valuation_map, cost_basis_map, asset_map)?;
+        crate::portfolio::coordinator::blocking(move || {
+            tax_plan_stress_tests(&plan, &accounts, as_of, retirement_age)
+        })
+        .await
+    }
+
+    async fn retirement_tax_plan_conversion_regret(
+        &self,
+        goal_id: &str,
+        valuation_map: &AccountValuationMap,
+        cost_basis_map: &AccountValuationMap,
+        asset_map: &AccountAssetMap,
+        mode: SuccessPathMode,
+        retirement_age: Option<u32>,
+    ) -> Result<TaxPlanConversionRegret> {
+        let (plan, accounts, as_of) =
+            self.tax_optimizer_input(goal_id, valuation_map, cost_basis_map, asset_map)?;
+        crate::portfolio::coordinator::blocking(move || {
+            tax_plan_conversion_regret(&plan, &accounts, as_of, mode, retirement_age)
+        })
+        .await
+    }
+
     async fn compute_save_up_overview(
         &self,
         goal_id: &str,
@@ -1046,6 +1461,9 @@ mod tests {
                     start_age: None,
                     end_age: None,
                     essential: Some(true),
+                    paid_while_working: false,
+                    yearly: false,
+                    ends_at_home_purchase: false,
                 }],
             },
             income_streams: vec![],
@@ -1061,6 +1479,7 @@ mod tests {
             },
             tax: None,
             currency: "USD".into(),
+            tax_optimizer: None,
         }
     }
 
@@ -1539,6 +1958,50 @@ mod tests {
     }
 
     #[test]
+    fn bucket_mixes_weigh_the_goals_share_of_each_accounts_holdings() {
+        let rules = vec![
+            GoalFundingRule {
+                tax_bucket: Some("taxable".into()),
+                ..share_rule("g1", "acct-1", 50.0)
+            },
+            GoalFundingRule {
+                tax_bucket: Some("tax_deferred".into()),
+                ..share_rule("g1", "acct-2", 100.0)
+            },
+            GoalFundingRule {
+                tax_bucket: Some("hsa".into()),
+                ..share_rule("g1", "acct-3", 100.0)
+            },
+        ];
+        let values = |stocks, fixed_income, cash, unclassified| AccountAssetValues {
+            stocks,
+            fixed_income,
+            cash,
+            unclassified,
+        };
+        let assets = HashMap::from([
+            ("acct-1".to_string(), values(60.0, 0.0, 20.0, 20.0)),
+            ("acct-2".to_string(), values(0.0, 100.0, 0.0, 0.0)),
+        ]);
+
+        let (mixes, unclassified) = bucket_mixes(&rules, &assets);
+        let mixes = mixes.expect("holdings");
+        // Unclassified holdings count as stocks.
+        assert!((mixes.taxable.stocks - 0.8).abs() < 1e-12);
+        assert!((mixes.taxable.cash - 0.2).abs() < 1e-12);
+        // Fixed income splits evenly between Baa bonds and T-notes.
+        assert!((mixes.tax_deferred.bonds - 0.5).abs() < 1e-12);
+        assert!((mixes.tax_deferred.notes - 0.5).abs() < 1e-12);
+        // Buckets without holdings take the goal's overall mix: 40 stocks,
+        // 100 fixed income, 10 cash.
+        assert!((mixes.hsa.stocks - 40.0 / 150.0).abs() < 1e-12);
+        assert_eq!(mixes.roth, mixes.hsa);
+        assert!((unclassified - 10.0).abs() < 1e-12);
+
+        assert_eq!(bucket_mixes(&rules, &HashMap::new()), (None, 0.0));
+    }
+
+    #[test]
     fn retirement_plan_validation_rejects_inverted_spending_window() {
         let mut plan = valid_retirement_plan();
         plan.expenses.items[0].start_age = Some(75);
@@ -1761,6 +2224,150 @@ mod tests {
         assert!(!shares_by_account.contains_key("acct-2"));
         assert!(!shares_by_account.contains_key("acct-4"));
         assert!(!shares_by_account.contains_key("acct-card"));
+    }
+
+    #[test]
+    fn a_linked_home_goal_brings_its_purchase_and_savings() {
+        let mut home = test_goal(GOAL_LIFECYCLE_ACTIVE, None);
+        home.id = "home".into();
+        home.goal_type = "home".into();
+        home.title = "Lake house".into();
+        home.target_date = Some("2031-01-01".into());
+        let repo = Arc::new(MockGoalRepository::new(vec![home.clone()]));
+        repo.set_funding_rules(
+            "home",
+            vec![
+                share_rule("home", "acct-1", 20.0),
+                share_rule("home", "acct-2", 100.0),
+            ],
+        );
+        repo.plans.lock().unwrap().insert(
+            "home".into(),
+            GoalPlan {
+                goal_id: "home".into(),
+                plan_kind: "save_up".into(),
+                planner_mode: None,
+                settings_json: r#"{"targetDate":"2030-05-01","homePurchase":{"price":500000}}"#
+                    .into(),
+                summary_json: String::new(),
+                version: 1,
+                created_at: String::new(),
+                updated_at: String::new(),
+            },
+        );
+        let service = GoalService::new(repo.clone(), Arc::new(MockAccountService::default()));
+        let mut retirement_rule = share_rule("retirement", "acct-1", 80.0);
+        retirement_rule.tax_bucket = Some("tax_deferred".into());
+
+        let (linked, rules) = service
+            .linked_home(Some("home"), &[retirement_rule.clone()])
+            .expect("load")
+            .expect("linked");
+        assert_eq!(linked.goal_title, "Lake house");
+        assert_eq!(linked.purchase.price, 500_000.0);
+        assert_eq!(linked.target_date.as_deref(), Some("2031-01-01"));
+        // Each account keeps the retirement goal's tax bucket.
+        assert_eq!(rules[0].tax_bucket.as_deref(), Some("tax_deferred"));
+        assert_eq!(rules[1].tax_bucket, None);
+
+        assert!(service.linked_home(None, &[]).expect("none").is_none());
+        assert!(service
+            .linked_home(Some("gone"), &[])
+            .expect("gone")
+            .is_none());
+        home.status_lifecycle = GOAL_LIFECYCLE_ACHIEVED.into();
+        repo.goals.lock().unwrap().insert("home".into(), home);
+        assert!(service
+            .linked_home(Some("home"), &[])
+            .expect("bought")
+            .is_none());
+    }
+
+    #[test]
+    fn fire_and_traditional_plans_take_a_linked_home_as_expenses() {
+        let mut home = test_goal(GOAL_LIFECYCLE_ACTIVE, None);
+        home.id = "home".into();
+        home.goal_type = "home".into();
+        home.title = "Lake house".into();
+        let retirement = retirement_goal("retirement", GOAL_LIFECYCLE_ACTIVE);
+        let repo = Arc::new(MockGoalRepository::new(vec![home, retirement]));
+        repo.set_funding_rules(
+            "retirement",
+            vec![share_rule("retirement", "acct-1", 100.0)],
+        );
+        repo.set_funding_rules("home", vec![share_rule("home", "acct-2", 100.0)]);
+        let plan = |goal_id: &str, kind: &str, mode: Option<&str>, settings: String| GoalPlan {
+            goal_id: goal_id.into(),
+            plan_kind: kind.into(),
+            planner_mode: mode.map(str::to_string),
+            settings_json: settings,
+            summary_json: String::new(),
+            version: 1,
+            created_at: String::new(),
+            updated_at: String::new(),
+        };
+        repo.plans.lock().unwrap().insert(
+            "home".into(),
+            plan(
+                "home",
+                "save_up",
+                None,
+                r#"{"homePurchase":{"price":400000,"purchaseAge":50}}"#.into(),
+            ),
+        );
+        let mut settings = valid_retirement_plan();
+        // Rent kept in the old tax-plan field: moved into a must-have item
+        // that ends at the purchase, in every style.
+        settings.tax_optimizer = Some(TaxOptimizerSettings {
+            home_goal_id: Some("home".into()),
+            housing: Housing::Rent,
+            monthly_rent: 2_000.0,
+            ..TaxOptimizerSettings::default()
+        });
+        let settings = serde_json::to_string(&settings).unwrap();
+        let service = GoalService::new(repo.clone(), Arc::new(MockAccountService::default()));
+        let values: AccountValuationMap =
+            HashMap::from([("acct-1".into(), 500_000.0), ("acct-2".into(), 50_000.0)]);
+        let as_of = NaiveDate::from_ymd_opt(2026, 1, 1).unwrap();
+
+        for (mode, linked) in [("traditional", true), ("fire", true), ("optimized", false)] {
+            repo.plans.lock().unwrap().insert(
+                "retirement".into(),
+                plan("retirement", "retirement", Some(mode), settings.clone()),
+            );
+            let prepared = service
+                .prepare_retirement_input("retirement", &values, as_of)
+                .expect("prepared");
+            let home_items: Vec<_> = prepared
+                .plan
+                .expenses
+                .items
+                .iter()
+                .filter(|item| {
+                    item.id
+                        .as_deref()
+                        .is_some_and(|id| id.starts_with("home-purchase"))
+                })
+                .collect();
+            let rent = prepared
+                .plan
+                .expenses
+                .items
+                .iter()
+                .find(|item| item.id.as_deref() == Some(RENT_EXPENSE_ID))
+                .expect("rent moved");
+            assert_eq!(rent.end_age, Some(50), "{mode}");
+            if linked {
+                // The home's expenses, and its savings in the portfolio.
+                assert_eq!(home_items.len(), 3, "{mode}");
+                assert!(home_items[0].paid_while_working);
+                assert_eq!(prepared.current_portfolio, 550_000.0, "{mode}");
+            } else {
+                // The tax-optimized style models the home itself.
+                assert!(home_items.is_empty());
+                assert_eq!(prepared.current_portfolio, 500_000.0);
+            }
+        }
     }
 
     #[tokio::test]

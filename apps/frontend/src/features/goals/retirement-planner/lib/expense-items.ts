@@ -56,6 +56,8 @@ function normalizeItem(
     startAge: normalizeOptionalAge(raw.startAge),
     endAge: normalizeOptionalAge(raw.endAge),
     essential: raw.essential,
+    yearly: raw.yearly || undefined,
+    endsAtHomePurchase: raw.endsAtHomePurchase || undefined,
   };
 }
 

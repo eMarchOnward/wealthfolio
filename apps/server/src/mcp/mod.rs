@@ -11,14 +11,9 @@ use std::time::Duration;
 
 use axum::{middleware, Router};
 use rmcp::transport::streamable_http_server::StreamableHttpServerConfig;
-use wealthfolio_mcp::McpServerBuilder;
+use wealthfolio_mcp::{McpServerBuilder, SERVER_INSTRUCTIONS};
 
 use crate::{config::Config, main_lib::AppState};
-
-const INSTRUCTIONS: &str = "Read and write access to the user's Wealthfolio portfolio: accounts, \
-holdings, valuations, performance, activities, income, goals, health, and classifications. \
-Write capabilities (drafting and committing activities, classification suggestions and commits) depend on the \
-scopes granted to the access token in use.";
 
 /// Builds the `/mcp` router: the Streamable HTTP MCP service behind PAT
 /// bearer authentication.
@@ -35,7 +30,7 @@ pub fn router(state: Arc<AppState>, config: &Config) -> Router {
     };
 
     let mut builder =
-        McpServerBuilder::new(state.agent_environment.clone()).instructions(INSTRUCTIONS);
+        McpServerBuilder::new(state.agent_environment.clone()).instructions(SERVER_INSTRUCTIONS);
     // Audit logging is opt-out via WF_MCP_AUDIT_ENABLED=false.
     if config.mcp_audit_enabled {
         builder = builder.audit(Arc::new(audit_sink::RepoAuditSink(

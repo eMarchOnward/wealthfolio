@@ -3160,7 +3160,9 @@ mod tests {
     use crate::schema::{spending_activity_splits, sync_outbox};
     use rust_decimal::Decimal;
     use tempfile::tempdir;
-    use wealthfolio_core::activities::{import_type, ActivityStatus, ActivityUpsert};
+    use wealthfolio_core::activities::{
+        import_type, ActivityStatus, ActivityUpsert, ImportTemplateScope, TemplateKind,
+    };
     use wealthfolio_core::fx::FxService;
     use wealthfolio_core::limits::{ContributionLimitService, ContributionLimitServiceTrait};
 
@@ -3270,6 +3272,93 @@ mod tests {
             .count()
             .get_result::<i64>(conn)
             .expect("count outbox")
+    }
+
+    #[tokio::test]
+    async fn migrations_seed_vanguard_system_template() {
+        let (pool, writer) = setup_db();
+        let repository = ActivityRepository::new(pool, writer);
+
+        let template = repository
+            .get_import_template("system_vanguard")
+            .expect("load template")
+            .expect("vanguard template seeded");
+
+        assert_eq!(template.name, "Vanguard");
+        assert_eq!(template.scope, ImportTemplateScope::System);
+        assert!(matches!(template.kind, TemplateKind::CsvActivity));
+        let config: serde_json::Value =
+            serde_json::from_str(&template.config).expect("config is valid JSON");
+        assert_eq!(config["fieldMappings"]["activityType"], "Type");
+        assert_eq!(config["parseConfig"]["skipTopRows"], 3);
+        assert!(config["activityMappings"]["TRANSFER_IN"]
+            .as_array()
+            .expect("transfer-in mappings")
+            .contains(&serde_json::json!("TRANSFER FROM *")));
+        // Money from the bank (brokerage "Funds Received", IRA "Contribution")
+        // arrives as transfers so it can be linked to the bank side.
+        let transfers_in = config["activityMappings"]["TRANSFER_IN"]
+            .as_array()
+            .expect("transfer-in mappings");
+        for label in ["Funds Received", "Contribution"] {
+            assert!(transfers_in.contains(&serde_json::json!(label)), "{label}");
+        }
+    }
+
+    #[tokio::test]
+    async fn migrations_seed_bank_of_america_system_template() {
+        let (pool, writer) = setup_db();
+        let repository = ActivityRepository::new(pool, writer);
+
+        let template = repository
+            .get_import_template("system_bank_of_america")
+            .expect("load template")
+            .expect("bank of america template seeded");
+
+        assert_eq!(template.name, "Bank of America");
+        assert_eq!(template.scope, ImportTemplateScope::System);
+        assert!(matches!(template.kind, TemplateKind::CsvActivity));
+        let config: serde_json::Value =
+            serde_json::from_str(&template.config).expect("config is valid JSON");
+        assert_eq!(config["fieldMappings"]["activityType"], "Type");
+        assert_eq!(config["parseConfig"]["skipTopRows"], 6);
+        // The opening balance is a deposit, which the import flow skips unless restored.
+        assert_eq!(
+            config["activityMappings"]["DEPOSIT"],
+            serde_json::json!(["Credit", "Beginning balance"])
+        );
+        assert!(config["activityMappings"].get("_SKIP_").is_none());
+        assert_eq!(
+            config["activityMappings"]["TRANSFER_OUT"],
+            serde_json::json!(["Transfer to Vanguard"])
+        );
+    }
+
+    #[tokio::test]
+    async fn migrations_seed_fidelity_netbenefits_system_template() {
+        let (pool, writer) = setup_db();
+        let repository = ActivityRepository::new(pool, writer);
+
+        let template = repository
+            .get_import_template("system_fidelity_netbenefits")
+            .expect("load template")
+            .expect("fidelity template seeded");
+
+        assert_eq!(template.name, "Fidelity NetBenefits (401k)");
+        assert_eq!(template.scope, ImportTemplateScope::System);
+        assert!(matches!(template.kind, TemplateKind::CsvActivity));
+        let config: serde_json::Value =
+            serde_json::from_str(&template.config).expect("config is valid JSON");
+        assert_eq!(config["fieldMappings"]["activityType"], "Transaction Type");
+        assert_eq!(config["parseConfig"]["headerRowIndex"], 2);
+        assert_eq!(
+            config["activityMappings"]["BUY"],
+            serde_json::json!(["Contributions"])
+        );
+        assert_eq!(
+            config["activityMappings"]["TRANSFER_IN"],
+            serde_json::json!(["Transfer In"])
+        );
     }
 
     #[tokio::test]

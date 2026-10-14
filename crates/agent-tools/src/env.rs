@@ -7,26 +7,76 @@
 //! extension trait in `wealthfolio-ai`. Hosts (Tauri, Axum) implement this
 //! by delegating to their already-composed service graphs.
 
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 use wealthfolio_core::{
     accounts::AccountServiceTrait,
     activities::ActivityServiceTrait,
-    assets::AssetServiceTrait,
+    assets::{AlternativeAssetServiceTrait, AssetServiceTrait},
+    events::DomainEventSink,
+    fx::FxServiceTrait,
     goals::GoalServiceTrait,
     health::HealthServiceTrait,
     limits::ContributionLimitServiceTrait,
     portfolio::{
-        allocation::AllocationServiceTrait, holdings::HoldingsServiceTrait,
-        income::IncomeServiceTrait, net_worth::NetWorthServiceTrait,
-        performance::PerformanceServiceTrait, valuation::ValuationServiceTrait,
+        allocation::AllocationServiceTrait,
+        allocation_targets::{
+            AllocationTargetServiceTrait, DriftServiceTrait, RebalanceServiceTrait,
+        },
+        holdings::HoldingsServiceTrait,
+        income::IncomeServiceTrait,
+        net_worth::NetWorthServiceTrait,
+        performance::PerformanceServiceTrait,
+        snapshot::SnapshotServiceTrait,
+        valuation::ValuationServiceTrait,
     },
     portfolios::PortfolioServiceTrait,
     quotes::QuoteServiceTrait,
     settings::SettingsServiceTrait,
     taxonomies::TaxonomyServiceTrait,
 };
-use wealthfolio_spending::cash_activities::CashActivityServiceTrait;
-use wealthfolio_spending::categorization_rules::CategorizationRulesServiceTrait;
+use wealthfolio_spending::analytics::AnalyticsService;
+use wealthfolio_spending::budget::BudgetService;
+use wealthfolio_spending::cash_activities::{CashActivityService, CashActivityServiceTrait};
+use wealthfolio_spending::categorization_rules::{
+    CategorizationRulesService, CategorizationRulesServiceTrait,
+};
+use wealthfolio_spending::events::EventsService;
+use wealthfolio_spending::insight::InsightService;
+use wealthfolio_spending::settings::SpendingSettingsService;
+
+/// The services behind the MCP tools that reach past the assistant's read and
+/// draft tools: planning, spending, allocation targets, alternative assets,
+/// market data and the writes. Hosts build it from the services they already
+/// composed; it holds no state of its own.
+#[derive(Clone)]
+pub struct AgentPlatformServices {
+    /// The user's timezone setting (IANA name), shared with the host.
+    pub timezone: Arc<RwLock<String>>,
+    /// Domain events, so writes trigger the same recalculation the app runs.
+    pub domain_event_sink: Arc<dyn DomainEventSink>,
+    pub snapshot_service: Arc<dyn SnapshotServiceTrait>,
+    pub fx_service: Arc<dyn FxServiceTrait>,
+    pub allocation_target_service: Arc<dyn AllocationTargetServiceTrait>,
+    pub drift_service: Arc<dyn DriftServiceTrait>,
+    pub rebalance_service: Arc<dyn RebalanceServiceTrait>,
+    pub alternative_asset_service: Arc<dyn AlternativeAssetServiceTrait>,
+    pub cash_activity_service: Arc<CashActivityService>,
+    pub categorization_rules_service: Arc<CategorizationRulesService>,
+    pub spending_settings_service: Arc<SpendingSettingsService>,
+    pub events_service: Arc<EventsService>,
+    pub budget_service: Arc<BudgetService>,
+    pub spending_analytics_service: Arc<AnalyticsService>,
+    pub spending_insight_service: Arc<InsightService>,
+}
+
+impl AgentPlatformServices {
+    pub fn timezone(&self) -> String {
+        self.timezone
+            .read()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .clone()
+    }
+}
 
 /// Data-service surface available to agent tools.
 pub trait AgentEnvironment: Send + Sync {
@@ -86,4 +136,10 @@ pub trait AgentEnvironment: Send + Sync {
 
     /// Get the categorization-rules service for the rules-first pass in category proposals.
     fn categorization_rules_service(&self) -> Arc<dyn CategorizationRulesServiceTrait>;
+
+    /// The services the MCP-only platform tools need. `None` (the default)
+    /// makes those tools report that this host does not offer them.
+    fn platform_services(&self) -> Option<AgentPlatformServices> {
+        None
+    }
 }

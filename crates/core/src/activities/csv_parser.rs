@@ -488,6 +488,51 @@ mod tests {
     }
 
     #[test]
+    fn header_row_index_counts_non_empty_lines_whatever_the_line_endings() {
+        // Fidelity NetBenefits: plan name and date range above the header,
+        // with blank lines around them.
+        let lf = "\nPlan name:,ACME, INC. RETIREMENT PLAN\nDate Range,01/01/2015 - 10/08/2026,,,,\n\n\nDate,Investment,Transaction Type,Amount,Shares/Unit\n09/25/2026,BR LP INDEX 2045 F,Contributions,\"1,000.00\",\"80.000\"\n";
+        let crlf = lf.replace('\n', "\r\n");
+        let config = ParseConfig {
+            header_row_index: Some(2),
+            ..Default::default()
+        };
+
+        for content in [lf.to_string(), crlf] {
+            let result = parse_csv(content.as_bytes(), &config).unwrap();
+
+            assert_eq!(
+                result.headers,
+                vec![
+                    "Date",
+                    "Investment",
+                    "Transaction Type",
+                    "Amount",
+                    "Shares/Unit"
+                ]
+            );
+            // Cells are not trimmed; a CRLF file keeps "\r" on the last one.
+            let last: Vec<&str> = result
+                .rows
+                .last()
+                .unwrap()
+                .iter()
+                .map(|cell| cell.trim())
+                .collect();
+            assert_eq!(
+                last,
+                vec![
+                    "09/25/2026",
+                    "BR LP INDEX 2045 F",
+                    "Contributions",
+                    "1,000.00",
+                    "80.000"
+                ]
+            );
+        }
+    }
+
+    #[test]
     fn test_skip_bottom_rows() {
         let content = b"name,age\nAlice,30\nBob,25\nTotal,55";
         let config = ParseConfig {

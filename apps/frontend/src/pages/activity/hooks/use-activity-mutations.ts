@@ -1,6 +1,7 @@
 import {
   createActivity,
   deleteActivity,
+  linkExactTransferMatches,
   linkTransferActivities,
   logger,
   saveActivities,
@@ -314,6 +315,23 @@ export function useActivityMutations(
     },
   });
 
+  const linkExactTransferMatchesMutation = useMutation({
+    mutationFn: linkExactTransferMatches,
+    onSuccess: (linked: number) => {
+      queryClient.invalidateQueries();
+      toast.success(linked === 1 ? "Linked 1 transfer" : `Linked ${linked} transfers`, {
+        description:
+          "Transfers with exactly one same-day, same-amount match were paired. Link any others from the activity's menu.",
+      });
+    },
+    onError: (error: string) => {
+      logger.error(`Error linking matching transfers: ${String(error)}`);
+      toast.error("Failed to link transfers", {
+        description: String(error),
+      });
+    },
+  });
+
   const unlinkTransferActivitiesMutation = useMutation({
     mutationFn: ({ activityAId, activityBId }: { activityAId: string; activityBId: string }) =>
       unlinkTransferActivities(activityAId, activityBId),
@@ -469,6 +487,7 @@ export function useActivityMutations(
     saveActivitiesMutation,
     saveInternalTransferPairMutation,
     linkTransferActivitiesMutation,
+    linkExactTransferMatchesMutation,
     unlinkTransferActivitiesMutation,
   };
 }

@@ -100,3 +100,4 @@ describe("SidebarConfigurator pension fund returns", () => {
 vi.mock("@/lib/settings-provider", () => ({
   useSettingsContext: () => ({ settings: { timezone: "Asia/Shanghai" } }),
 }));
+vi.mock("@/features/goals/hooks/use-goals", () => ({ useGoals: () => ({ goals: [] }) }));

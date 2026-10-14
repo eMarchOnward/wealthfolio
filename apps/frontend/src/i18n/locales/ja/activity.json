@@ -304,6 +304,7 @@
   "page": {
     "import_from_csv": "CSVからインポート",
     "transfer_holdings": "保有銘柄を振替",
+    "link_matching_transfers": "一致する振替をリンク",
     "add_personal_asset": "個人資産を追加",
     "add_activities": "取引を追加",
     "ask_ai_categorize": "AIに分類を依頼",

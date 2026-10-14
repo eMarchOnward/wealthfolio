@@ -5,6 +5,7 @@
 
 use std::sync::{Arc, RwLock};
 
+use wealthfolio_agent_tools::AgentPlatformServices;
 use wealthfolio_ai::{AgentEnvironment, AiEnvironment, ChatRepositoryTrait};
 use wealthfolio_core::{
     accounts::AccountServiceTrait, activities::ActivityServiceTrait,
@@ -48,6 +49,7 @@ pub struct ServerAiEnvironment {
     cash_activity_service: Arc<CashActivityService>,
     activity_taxonomy_assignment_service: Arc<ActivityTaxonomyAssignmentService>,
     categorization_rules_service: Arc<CategorizationRulesService>,
+    platform_services: Option<AgentPlatformServices>,
 }
 
 impl ServerAiEnvironment {
@@ -100,7 +102,15 @@ impl ServerAiEnvironment {
             cash_activity_service,
             activity_taxonomy_assignment_service,
             categorization_rules_service,
+            platform_services: None,
         }
+    }
+
+    /// Adds the services the MCP platform tools use (planning, spending,
+    /// allocation targets, alternative assets, market data and writes).
+    pub fn with_platform_services(mut self, services: AgentPlatformServices) -> Self {
+        self.platform_services = Some(services);
+        self
     }
 }
 
@@ -182,6 +192,10 @@ impl AgentEnvironment for ServerAiEnvironment {
 
     fn categorization_rules_service(&self) -> Arc<dyn CategorizationRulesServiceTrait> {
         self.categorization_rules_service.clone()
+    }
+
+    fn platform_services(&self) -> Option<AgentPlatformServices> {
+        self.platform_services.clone()
     }
 }
 

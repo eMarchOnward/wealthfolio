@@ -4,9 +4,14 @@ use std::sync::Arc;
 use rust_decimal::prelude::ToPrimitive;
 
 use crate::context::ServiceContext;
-use wealthfolio_core::goals::validate_retirement_plan;
+use wealthfolio_core::goals::{
+    account_asset_map, cost_basis_map, validate_retirement_plan, AccountAssetMap,
+    AccountValuationMap,
+};
 use wealthfolio_core::planning::retirement::{
-    normalize_retirement_plan_ages, RetirementPlan, RetirementTimingMode,
+    normalize_retirement_plan_ages, RetirementPlan, RetirementTimingMode, SuccessPathMode,
+    TaxOptimizedPlan, TaxOptimizerAccounts, TaxPlanChoiceCosts, TaxPlanConversionRegret,
+    TaxPlanSafeSpending, TaxPlanStressTests, TaxPlanSuccess,
 };
 use wealthfolio_core::portfolio::fire::{
     project_retirement_with_mode, run_decision_sensitivity_matrix_with_mode,
@@ -296,4 +301,179 @@ pub async fn run_retirement_decision_sensitivity_map(
         )
     })
     .await
+}
+
+/// Current values, cost bases and holdings by asset class of every account:
+/// the inputs of the tax-optimized plan.
+async fn tax_plan_maps(
+    context: &Arc<ServiceContext>,
+) -> Result<(AccountValuationMap, AccountValuationMap, AccountAssetMap), String> {
+    let valuation_map = build_valuation_map(context).await?;
+    let account_ids: Vec<String> = valuation_map.keys().cloned().collect();
+    let latest = context
+        .valuation_service()
+        .get_latest_valuations(&account_ids)
+        .map_err(|e| e.to_string())?;
+    let asset_map = account_asset_map(
+        context.allocation_service().as_ref(),
+        &account_ids,
+        &context.get_base_currency(),
+    )
+    .await
+    .map_err(|e| e.to_string())?;
+    Ok((valuation_map, cost_basis_map(&latest), asset_map))
+}
+
+/// Starting balances and asset mixes the tax-optimized plan of a retirement
+/// goal begins from.
+#[tauri::command]
+pub async fn get_retirement_tax_plan_accounts(
+    goal_id: String,
+    state: ProfileAccess,
+) -> Result<TaxOptimizerAccounts, String> {
+    let context = state.context()?;
+    let (valuation_map, cost_basis, asset_map) = tax_plan_maps(&context).await?;
+    context
+        .goal_service()
+        .retirement_tax_plan_accounts(&goal_id, &valuation_map, &cost_basis, &asset_map)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// Solves the tax-optimized plan of a retirement goal (MILP; can take a minute).
+#[tauri::command]
+pub async fn optimize_retirement_tax_plan(
+    goal_id: String,
+    state: ProfileAccess,
+) -> Result<TaxOptimizedPlan, String> {
+    let context = state.context()?;
+    let (valuation_map, cost_basis, asset_map) = tax_plan_maps(&context).await?;
+    context
+        .goal_service()
+        .optimize_retirement_tax_plan(&goal_id, &valuation_map, &cost_basis, &asset_map)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// Chance the tax-optimized plan's expenses are funded across historical or
+/// resampled return paths (re-solves the plan per path; can take minutes).
+#[tauri::command]
+pub async fn run_retirement_tax_success(
+    goal_id: String,
+    mode: SuccessPathMode,
+    retirement_age: Option<u32>,
+    state: ProfileAccess,
+) -> Result<TaxPlanSuccess, String> {
+    let context = state.context()?;
+    let (valuation_map, cost_basis, asset_map) = tax_plan_maps(&context).await?;
+    context
+        .goal_service()
+        .retirement_tax_plan_success(
+            &goal_id,
+            &valuation_map,
+            &cost_basis,
+            &asset_map,
+            mode,
+            retirement_age,
+        )
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// The most the tax-optimized plan can spend while succeeding on at least
+/// `target_rate` of the return paths (re-solves the plan per path; can take minutes).
+#[tauri::command]
+pub async fn run_retirement_tax_safe_spending(
+    goal_id: String,
+    mode: SuccessPathMode,
+    retirement_age: Option<u32>,
+    target_rate: f64,
+    state: ProfileAccess,
+) -> Result<TaxPlanSafeSpending, String> {
+    let context = state.context()?;
+    let (valuation_map, cost_basis, asset_map) = tax_plan_maps(&context).await?;
+    context
+        .goal_service()
+        .retirement_tax_plan_safe_spending(
+            &goal_id,
+            &valuation_map,
+            &cost_basis,
+            &asset_map,
+            mode,
+            retirement_age,
+            target_rate,
+        )
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// What each choice of the tax-optimized plan costs its goal (re-solves the
+/// plan once per choice; can take a minute or more).
+#[tauri::command]
+pub async fn run_retirement_tax_choice_costs(
+    goal_id: String,
+    retirement_age: Option<u32>,
+    state: ProfileAccess,
+) -> Result<TaxPlanChoiceCosts, String> {
+    let context = state.context()?;
+    let (valuation_map, cost_basis, asset_map) = tax_plan_maps(&context).await?;
+    context
+        .goal_service()
+        .retirement_tax_plan_choice_costs(
+            &goal_id,
+            &valuation_map,
+            &cost_basis,
+            &asset_map,
+            retirement_age,
+        )
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// The tax-optimized plan re-solved under shocks it does not control (one
+/// solve per shock; can take a minute or more).
+#[tauri::command]
+pub async fn run_retirement_tax_stress_tests(
+    goal_id: String,
+    retirement_age: Option<u32>,
+    state: ProfileAccess,
+) -> Result<TaxPlanStressTests, String> {
+    let context = state.context()?;
+    let (valuation_map, cost_basis, asset_map) = tax_plan_maps(&context).await?;
+    context
+        .goal_service()
+        .retirement_tax_plan_stress_tests(
+            &goal_id,
+            &valuation_map,
+            &cost_basis,
+            &asset_map,
+            retirement_age,
+        )
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// How this year's recommended Roth conversion fares across market paths
+/// (re-solves the plan per path and amount; can take minutes).
+#[tauri::command]
+pub async fn run_retirement_tax_conversion_regret(
+    goal_id: String,
+    mode: SuccessPathMode,
+    retirement_age: Option<u32>,
+    state: ProfileAccess,
+) -> Result<TaxPlanConversionRegret, String> {
+    let context = state.context()?;
+    let (valuation_map, cost_basis, asset_map) = tax_plan_maps(&context).await?;
+    context
+        .goal_service()
+        .retirement_tax_plan_conversion_regret(
+            &goal_id,
+            &valuation_map,
+            &cost_basis,
+            &asset_map,
+            mode,
+            retirement_age,
+        )
+        .await
+        .map_err(|e| e.to_string())
 }

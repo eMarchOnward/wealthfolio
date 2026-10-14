@@ -70,7 +70,9 @@
     "quote_education": "for learning ahead",
     "quote_retirement": "the long slow afternoon",
     "quote_wedding": "the day to remember",
-    "quote_custom_save_up": "a little by a little"
+    "quote_custom_save_up": "a little by a little",
+    "with_retirement": "WITH RETIREMENT",
+    "needed_at_purchase": "needed at purchase, paid by the retirement plan"
   },
   "dashboard": {
     "subtitle": "Track and plan your financial goals",
@@ -265,7 +267,9 @@
       "return_before_hint": "Assumed annual return while saving, before investment fees.",
       "return_during_hint": "Assumed annual return after withdrawals begin, before investment fees.",
       "annual_fee_hint": "Estimated yearly portfolio fees.",
-      "inflation_hint": "Assumed annual increase in prices."
+      "inflation_hint": "Assumed annual increase in prices.",
+      "tax_optimized": "Tax-optimized",
+      "mode_change_optimized": "Your retirement age becomes a fixed retirement start age. The goal gets its own tabs: set the plan up on Plan, optimize it, then read the result on Overview and test it on Risk. The FIRE/Traditional projection and What If are not used."
     },
     "spending": {
       "kicker": "Spending",
@@ -297,7 +301,16 @@
       "preset_travel": "Travel",
       "add_travel": "+ Travel",
       "preset_other": "Other spending",
-      "add_other": "+ Other"
+      "add_other": "+ Other",
+      "per_month": "Monthly",
+      "per_year": "Yearly",
+      "per_year_suffix": "/yr",
+      "yearly_spending": "Yearly spending",
+      "ends_at_purchase": "Stops when I buy my home",
+      "ends_at_purchase_help": "Ends when you buy {{title}}, such as rent or a home you sell.",
+      "ends_at_purchase_no_home": "Applies once a home goal is chosen under Home purchase; until then it keeps going.",
+      "ends_at_purchase_meta": "until home purchase",
+      "must_have_total": "Must-have at {{age}}: {{amount}}/mo. Spending never falls below the must-have items; flexible items are cut first."
     },
     "income": {
       "kicker": "Income",
@@ -389,6 +402,18 @@
       "tax_free_bucket": "Tax-free bucket",
       "tax_free_bucket_tip": "Portion assigned to tax-free accounts such as TFSA or Roth-style accounts.",
       "zero_rates_note": "Account bucket tags are applied, but 0% withdrawal rates mean no tax drag is modeled."
+    },
+    "home": {
+      "kicker": "Home",
+      "title": "Home purchase",
+      "goal": "Home goal",
+      "purchase_date": "Purchase",
+      "cash_needed": "Cash needed",
+      "none": "No home purchase included.",
+      "no_home_goals": "No home purchase included. Create a home goal to plan one.",
+      "none_option": "None",
+      "hint_optimized": "The Tax Plan pays the down payment and closing costs from the accounts that cost the least in taxes, adds the mortgage and owning costs, and stops rent at the purchase. The home's details are on its goal.",
+      "hint_projection": "The projection takes the down payment and closing costs from your portfolio in the purchase year, even while you work, and adds the mortgage and owning costs to your expenses once you retire. The home's details are on its goal."
     }
   },
   "edit": {
@@ -463,7 +488,24 @@
     "target_date": "Target date",
     "funding_hint": "You can choose funding accounts and monthly contributions after creation.",
     "creating": "Creating...",
-    "create_goal_button": "Create Goal"
+    "create_goal_button": "Create Goal",
+    "planner_tax_optimized": "Tax-optimized",
+    "planner_tax_optimized_hint": "Find the withdrawal order, Roth conversions and claiming age that minimize lifetime taxes (US)",
+    "home_price": "Today's price",
+    "home_price_required": "Enter the home's price today.",
+    "home_down_payment": "Down payment",
+    "home_purchase_date": "Purchase date",
+    "home_date_required": "Planning with your retirement goal needs a purchase date.",
+    "home_cash_needed": "About {{amount}} needed at purchase (down payment and closing costs, at the price then). Mortgage, taxes and other details are on the goal page.",
+    "home_details_later": "Mortgage, closing costs, taxes and the other details are on the goal page.",
+    "home_funding": "How will you pay for it?",
+    "home_funding_hint": "Your retirement plan can pay for the home from the same accounts, or this goal can save for it with its own accounts.",
+    "home_with_retirement": "Plan it with my retirement goal",
+    "home_with_retirement_hint": "The retirement plan pays the down payment from your accounts and adds the mortgage and owning costs. No account shares to set.",
+    "home_with_retirement_needs_goal": "Create a retirement goal first.",
+    "home_own_accounts": "Save for it with its own accounts",
+    "home_own_accounts_hint": "Give this goal a share of some accounts and track its savings progress.",
+    "home_replaces": "Your retirement plan includes {{title}} now; this home replaces it."
   },
   "guide": {
     "title": "Retirement guide",
@@ -557,7 +599,10 @@
     "header_with_description": "{{type}} goal · {{description}}",
     "delete_confirm": "Are you sure you want to delete \"{{title}}\"? This action cannot be undone.",
     "deleting": "Deleting...",
-    "no_plan_yet": "This goal doesn't have a detailed plan yet."
+    "no_plan_yet": "This goal doesn't have a detailed plan yet.",
+    "tab_plan": "Plan",
+    "tab_risk": "Risk",
+    "tab_compare": "Compare"
   },
   "funding": {
     "account_shares": "Account Shares",
@@ -589,7 +634,8 @@
     "tax_bucket": {
       "taxable": "Taxable",
       "tax_deferred": "Tax-deferred",
-      "tax_free": "Tax-free"
+      "tax_free": "Tax-free",
+      "hsa": "HSA"
     }
   },
   "value_mode": {
@@ -921,5 +967,700 @@
         "description": "A 30% market drop is modeled in the first retirement year."
       }
     }
+  },
+  "tax_plan": {
+    "title": "Tax-optimized retirement plan",
+    "description": "Solves which accounts to draw from, when to convert to Roth and when to claim Social Security to minimize US federal taxes over your lifetime. Uses the settings on this tab and the goal's accounts. The result appears on Overview and Risk.",
+    "run": "Optimize",
+    "rerun": "Optimize again",
+    "running": "Optimizing… this can take a minute",
+    "failed": "The optimizer could not run: {{message}}",
+    "stale": "The plan has changed since this result. Optimize again to update it.",
+    "infeasible": "No plan can fund these expenses with these accounts.",
+    "approximate": "The solver stopped at its time limit, so this plan is close to optimal rather than proven optimal.",
+    "chart": {
+      "age_label": "Age {{age}}",
+      "sources": "Where each year's money comes from",
+      "balances": "Balances by tax treatment",
+      "conversions": "Roth conversions, taxes and Medicare"
+    },
+    "series": {
+      "wages": "Wages",
+      "social_security": "Social Security",
+      "other_income": "Other income",
+      "taxable": "Taxable",
+      "tax_deferred": "Tax-deferred",
+      "roth": "Roth",
+      "spending": "Spending",
+      "roth_conversion": "Roth conversion",
+      "taxes": "Federal tax",
+      "medicare": "Medicare",
+      "saved": "Saved",
+      "hsa": "HSA",
+      "gain_harvest": "Gains harvested",
+      "state_tax": "State tax",
+      "debt_payment": "Debt payments",
+      "leftover_spent": "Leftover spent"
+    },
+    "summary": {
+      "sustainable_spending": "Sustainable spending",
+      "per_year_today": "Per year, in today's money",
+      "estate": "After-tax estate",
+      "estate_hint": "Left to heirs at the end of the plan, in today's money",
+      "lifetime_tax": "Lifetime federal tax",
+      "lifetime_medicare": "Plus {{amount}} of Medicare premiums",
+      "roth_conversions": "Total Roth conversions",
+      "claim_age": "Social Security claim",
+      "claim_age_value": "Age {{age}} + {{months}} mo"
+    },
+    "table": {
+      "title": "Yearly playbook (today's money)",
+      "year": "Year",
+      "age": "Age",
+      "working": "Working"
+    },
+    "settings": {
+      "title": "Optimizer settings",
+      "objective": "Optimize for",
+      "objective_max_bequest": "Fund my expenses, leave the most",
+      "objective_max_spending": "Spend as much as possible",
+      "bequest_floor": "Leave at least (after tax)",
+      "social_security_stream": "Social Security income stream",
+      "optimize_claim_age": "Let the optimizer choose the claim age",
+      "pre_tax_contribution": "Pre-tax 401(k) per year",
+      "employer_contribution": "Employer contribution per year",
+      "roth_contribution": "Roth contribution per year",
+      "taxable_contribution": "Taxable investing per year",
+      "max_roth_conversion": "Roth conversion cap per year",
+      "heirs_tax_rate": "Heirs' tax rate on IRAs (%)",
+      "prior_magi": "Recent MAGI",
+      "prior_magi_help": "Modified AGI of the last two years (sets Medicare surcharges); best taken from your tax return. Empty uses {{amount}} (salary less pre-tax deferrals).",
+      "state": "State income tax",
+      "no_state": "None",
+      "state_va": "Virginia",
+      "aca_benchmark_premium": "ACA benchmark premium per year",
+      "hsa_contribution": "HSA contribution per year",
+      "other_medical_expenses": "Medical costs the HSA can pay (per year)",
+      "rule_of_55_balance": "Rule of 55: 401(k) balance",
+      "sepp_start_age": "72(t) payments: start age",
+      "sepp_annual_payment": "72(t) yearly payment",
+      "harvest_gains": "Harvest gains in low-tax years",
+      "optimize_contributions": "Optimize my contributions while working",
+      "match_rate": "Employer match rate (%)",
+      "match_cap": "Matched up to (% of salary)",
+      "hsa_eligible": "High-deductible health plan (HSA allowed)",
+      "roth_401k_available": "401(k) offers Roth",
+      "debts": "Debts",
+      "add_debt": "Add debt",
+      "remove_debt": "Remove",
+      "debt_label": "Name",
+      "debt_balance": "Balance",
+      "debt_rate": "Rate (%)",
+      "debt_payment": "Payment per year",
+      "enter_social_security": "Enter amounts below",
+      "social_security_monthly": "Social Security per month",
+      "social_security_claim_age": "Social Security claim age",
+      "optimize_claim_age_needs_benefit": "Enter a Social Security benefit first.",
+      "salary": "Salary per year (gross)",
+      "salary_growth": "Salary growth per year (%)",
+      "goal": "Goal",
+      "goal_fixed_age": "Retire at {{age}}",
+      "goal_earliest_age": "When can I retire?",
+      "retirement_age": "Retirement age",
+      "section": {
+        "goal": "Goal",
+        "social_security": "Social Security",
+        "work": "Work & saving",
+        "taxes": "Taxes & health care",
+        "early_access": "Early access to retirement accounts",
+        "estate": "Estate, debts & markets",
+        "expenses": "Expenses",
+        "markets": "Markets"
+      },
+      "spending_floor": "Must-have spending today: {{amount}} a year, from the Must-have items in the Spending card. Each year's spending covers at least the must-have items active that year; taxes, health insurance and debt payments are paid on top.",
+      "spending_floor_none": "No must-have spending: the plan may cut spending as low as it needs to. Mark items in the Spending card as Must-have to protect them.",
+      "markets": {
+        "method": "Market returns",
+        "method_plan": "My projection assumptions ({{working}} working, {{retired}} retired)",
+        "method_fixed": "Fixed returns by asset class",
+        "method_historical": "Replay market history",
+        "method_average": "Historical average",
+        "return_stocks": "Stocks return",
+        "return_bonds": "Corporate bonds return",
+        "return_notes": "Treasury notes return",
+        "presets": "Presets:",
+        "preset_conservative": "Conservative",
+        "preset_optimistic": "Optimistic",
+        "preset_trailing": "Last {{years}} years",
+        "start_year": "First year replayed",
+        "average_from": "Average from",
+        "average_to": "Average to",
+        "inflation_method": "Inflation",
+        "inflation_fixed": "Fixed rate",
+        "inflation_historical": "That history's inflation",
+        "inflation_average": "Average inflation of those years",
+        "inflation": "Inflation rate",
+        "manual_mix": "Set the asset mix myself",
+        "mix_from_holdings": "Each account type's mix comes from its holdings today.",
+        "mix_fallback": "No holdings found: {{stocks}} stocks and {{bonds}} bonds assumed.",
+        "mix_manual_note": "Turn off to use the mix of your holdings again.",
+        "glide_to_target": "Glide to a target mix",
+        "unclassified_warning": "{{amount}} of your holdings have no asset class, so they count as stocks. Give those securities an asset class for a truer mix.",
+        "mix_account": "Account type",
+        "class_stocks": "Stocks",
+        "class_bonds": "Bonds",
+        "class_notes": "T-notes",
+        "class_cash": "Cash",
+        "bucket_taxable": "Taxable",
+        "bucket_taxDeferred": "Tax-deferred",
+        "bucket_roth": "Roth",
+        "bucket_hsa": "HSA",
+        "target": "Target",
+        "mix_scaled": "Rows that don't add up to 100% are scaled to 100%.",
+        "mix_success_only": "With your projection assumptions, the asset mix only affects the success check.",
+        "glide": "Glide path",
+        "glide_linear": "Straight line",
+        "glide_s_curve": "S-curve",
+        "target_age": "Reach the target at age",
+        "target_age_default": "Blank: by your planning horizon, age {{age}}."
+      },
+      "sell_current_home": "Sell my current home when I buy",
+      "current_home_value": "Current home's value today",
+      "selling_cost_rate": "Selling costs",
+      "current_home_debt": "Loan the sale repays",
+      "current_home_debt_none": "None",
+      "old_minimum": "Your earlier Minimum living expenses ({{amount}} a year) is no longer used. The floor is now your Must-have spending items ({{floor}} a year today); adjust them in the Spending card if needed.",
+      "old_minimum_dismiss": "Got it",
+      "sell_current_home_items": "In the Spending card, set the current home's costs to stop when you buy, so they end with the sale.",
+      "leftover_partly": "Invest only part of leftover pay",
+      "leftover_invest_rate": "Share of leftover pay invested (%)",
+      "hsa_family_coverage": "Family HSA coverage"
+    },
+    "baseline": {
+      "title": "Value of optimizing",
+      "description": "Compared with the usual rule of thumb: spend taxable accounts first, then tax-deferred, then Roth, with no Roth conversions and Social Security at the planned age.",
+      "infeasible": "The usual rule of thumb cannot fund this plan at all; the optimized order can.",
+      "extra_estate": "Larger after-tax estate",
+      "extra_spending": "More spending per year",
+      "tax_saved": "Lifetime tax saved",
+      "versus": "Rule of thumb: {{amount}}",
+      "tax_extra": "Lifetime tax: more than the rule of thumb",
+      "tax_extra_spending_note": "Federal and state tax and early-withdrawal penalties. The optimized plan pays more tax because it spends more: higher withdrawals are taxed, and tax paid early (on Roth conversions, say) buys more spending later.",
+      "tax_extra_estate_note": "Federal and state tax and early-withdrawal penalties. The optimized plan pays more tax because it leaves a larger after-tax estate: tax paid now (on Roth conversions, say) spares heirs a higher tax later."
+    },
+    "success": {
+      "title": "Chance of success",
+      "description": "Re-solves the plan on every historical market sequence since 1928, or on simulated (Monte Carlo) markets, at your planned spending.",
+      "run_historical": "Historical (since 1928)",
+      "run_bootstrap": "Monte Carlo: resampled years ({{count}} runs)",
+      "running": "Solving every path… this can take a few minutes.",
+      "summary": "{{funded}} of {{paths}} paths fund {{spending}} a year.",
+      "estates": "Estate left (10th / 50th / 90th percentile): {{p10}} / {{p50}} / {{p90}}",
+      "failed_years": "Ran out when starting in: {{years}}",
+      "description_required": "Re-solves the plan retiring at {{age}} on every historical (or resampled) market path and counts how often your must-have spending is covered for life.",
+      "not_run": "No success-rate check was saved with this case.",
+      "run_lognormal": "Monte Carlo: lognormal ({{count}} runs)",
+      "lifespans": "Each run drew its own lifespan: 10% of runs end by age {{p10}}, half by {{p50}}, 90% by {{p90}}."
+    },
+    "running_search": "Comparing retirement ages… (a minute or two)",
+    "infeasible_hint": "Your must-have spending can't be covered retiring at this age. Try the goal ‘When can I retire?’ to find an age that works.",
+    "units": {
+      "per_year": "/ year",
+      "per_month": "/ month",
+      "total": "total",
+      "percent": "%",
+      "age": "age",
+      "year": "year"
+    },
+    "age_search": {
+      "title": "When can I retire?",
+      "earliest": "Earliest retirement age: {{age}}",
+      "earliest_detail": "Spending up to {{spending}} a year in retirement, covering {{required}} of must-have spending (today's money).",
+      "use_age": "Use {{age}} as my retirement age",
+      "none": "Your must-have spending can't be covered even retiring at {{age}}.",
+      "description": "Each bar is the most you could spend per year once retired if you stop working at that age, in today's money. The dashed line is your must-have spending: the earliest age is the first bar that reaches it. The plan below is for that age.",
+      "retire_at": "Retire at {{age}}",
+      "spending": "Most you can spend per year",
+      "required": "Minimum expenses"
+    },
+    "info": {
+      "aria": "About {{setting}}",
+      "expected": "Expected:",
+      "goal": {
+        "body": "The question the planner answers.\n\n‘Retire at…’ keeps your retirement age fixed and finds the best plan for it: which account to draw from each year, how much to convert to Roth, and when to claim Social Security.\n\n‘When can I retire?’ tries every retirement age from today to 70 and finds the earliest one where your must-have spending is covered every year for life, plus anything you want to leave behind. It takes a minute or two because each age is a full optimization.",
+        "value": "A choice from the list."
+      },
+      "retirement_age": {
+        "body": "The age you stop working. Salary and contributions stop at the start of the year you reach this age; from then on the plan lives on savings, Social Security and other income.\n\nThis is the same retirement age used elsewhere in the goal.",
+        "value": "An age in whole years, e.g. 62."
+      },
+      "objective": {
+        "body": "‘Fund my expenses, leave the most’ spends exactly your planned expenses each year and arranges withdrawals and taxes so the largest possible after-tax estate is left at the end.\n\n‘Spend as much as possible’ raises all your expenses together, in the same shape, as high as the money allows while leaving at least the amount below. Your must-have spending is always covered either way.",
+        "value": "A choice from the list."
+      },
+      "bequest_floor": {
+        "body": "The least you want to leave behind at the end of the plan, after your heirs pay income tax on inherited IRAs and 401(k)s. Use 0 if you only care about your own spending.\n\nA higher amount lowers how much you can spend (or makes you retire later).",
+        "value": "A total in dollars, in today's money, e.g. 100000."
+      },
+      "social_security_stream": {
+        "body": "If your plan already has a Social Security income stream, pick it here: its start age becomes the claim age and its monthly amount the benefit at that age. It is then taxed as Social Security (at most 85% taxable) rather than as a pension.\n\nIf you have no such stream, choose ‘Enter amounts below’ and type the benefit directly.",
+        "value": "A choice from the list."
+      },
+      "social_security_monthly": {
+        "body": "Your estimated monthly benefit if you claim at the claim age next to it, in today's money. Your personal estimate is at ssa.gov/myaccount (‘Plan for retirement’), which shows amounts for every claim age from 62 to 70.\n\nIf you let the optimizer choose the claim age, this amount is converted to your full-retirement-age benefit and adjusted for whichever age it picks.",
+        "value": "Dollars per month, e.g. 2400."
+      },
+      "social_security_claim_age": {
+        "body": "The age you start Social Security. Claiming at 62 gives a permanently smaller check; every year you wait past full retirement age (67 for most people today) adds 8% until 70.\n\nUse the age that matches the monthly amount you entered.",
+        "value": "An age from 62 to 70."
+      },
+      "optimize_claim_age": {
+        "body": "Lets the optimizer pick the claiming month between 62 and 70 instead of using the age you entered. It weighs a bigger lifelong check against drawing more from savings in the meantime, including the tax effects (waiting often leaves room for cheap Roth conversions).\n\nIt assumes you live to the end of the plan; if you expect a shorter life, an earlier claim may be wiser.",
+        "value": "On or off."
+      },
+      "salary": {
+        "body": "Your gross pay before taxes, 401(k), HSA or benefit deductions, as on your W-2 or a pay stub's year-to-date total. It is earned every year until the retirement age.\n\nBank deposits are take-home pay, so they understate it. Leave this empty if you no longer work.",
+        "value": "Dollars per year, e.g. 120000."
+      },
+      "salary_growth": {
+        "body": "How fast your pay rises each year, including inflation. Equal to inflation means your pay keeps its buying power but no more; raises above inflation mean real growth.\n\nIt starts at the plan's inflation rate.",
+        "value": "A percentage per year, e.g. 3."
+      },
+      "optimize_contributions": {
+        "body": "When on, the optimizer decides how to split your savings while working: pre-tax 401(k), Roth 401(k), Roth IRA, HSA, or a regular brokerage account, within the yearly IRS limits and counting the employer match.\n\nWhen off, you enter fixed yearly amounts instead. Pre-tax saving lowers today's tax; Roth saving lowers tax in retirement, and the optimizer compares the two for your situation.",
+        "value": "On or off."
+      },
+      "match_rate": {
+        "body": "How much your employer adds for each dollar you put into the 401(k), up to the limit next to it. 50 means 50 cents per dollar; 100 means dollar for dollar.\n\nYour plan's summary plan description or benefits site states it, e.g. ‘50% of the first 6% of pay’.",
+        "value": "A percentage, e.g. 50."
+      },
+      "match_cap": {
+        "body": "The share of your salary the match applies to. In ‘50% of the first 6% of pay’ this is 6: you get the full match by contributing at least 6% of your salary.",
+        "value": "A percentage of salary, e.g. 6."
+      },
+      "hsa_eligible": {
+        "body": "Turn on if you are covered by a high-deductible health plan, which allows contributions to a health savings account (HSA).\n\nHSA money goes in before tax, grows tax-free and comes out tax-free for medical costs: the best-taxed account there is, so the optimizer will usually fill it.",
+        "value": "On or off."
+      },
+      "roth_401k_available": {
+        "body": "Turn on if your 401(k) lets you choose Roth (after-tax) contributions. Most plans do; check your benefits site. Off limits the optimizer to pre-tax 401(k) contributions plus a Roth IRA.",
+        "value": "On or off."
+      },
+      "pre_tax_contribution": {
+        "body": "What you put into a traditional (pre-tax) 401(k) or 403(b) each year while working. It comes out of your pay before income tax, lowering this year's tax; you pay tax when you withdraw it in retirement.\n\nUse the yearly amount, not the percentage: for 10% of a 120,000 salary, enter 12000.",
+        "value": "Dollars per year, e.g. 12000."
+      },
+      "employer_contribution": {
+        "body": "What your employer puts into your 401(k) each year (match plus any profit sharing). It goes into the pre-tax account and is not taxed until withdrawn.\n\nThis is a dollar amount, not a percentage: a 4% match on a 100,000 salary is 4000.",
+        "value": "Dollars per year, e.g. 4000."
+      },
+      "roth_contribution": {
+        "body": "What you put into Roth accounts (Roth 401(k) or Roth IRA) each year while working. It is taxed now but grows and comes out tax-free in retirement.",
+        "value": "Dollars per year, e.g. 7000."
+      },
+      "hsa_contribution": {
+        "body": "What you (and your employer) put into a health savings account each year while working. It is deducted before tax and can pay medical costs tax-free at any age.",
+        "value": "Dollars per year, e.g. 4400."
+      },
+      "taxable_contribution": {
+        "body": "What you invest each year in a regular (taxable) brokerage account while working, beyond retirement accounts. Any pay left over after expenses and taxes is also invested there, unless you choose to invest only part of it (with Optimize my contributions on).",
+        "value": "Dollars per year, e.g. 10000."
+      },
+      "state": {
+        "body": "Adds state income tax to the plan. Only Virginia is modeled for now: its brackets, standard deduction, and the $12,000 age deduction from 65. Social Security is not taxed by Virginia.\n\nChoose None if your state has no income tax.",
+        "value": "A choice from the list."
+      },
+      "prior_magi": {
+        "body": "Your modified adjusted gross income of the last two years: adjusted gross income (Form 1040, line 11) plus tax-exempt interest (line 2a). Medicare premiums in a given year depend on income two years earlier, so these years matter once you are close to 65.\n\nIf left empty, the planner estimates it from your salary minus pre-tax 401(k) and HSA contributions.",
+        "value": "Dollars per year, e.g. 110000."
+      },
+      "max_roth_conversion": {
+        "body": "Moving money from a traditional IRA or 401(k) to a Roth account is a Roth conversion: you pay income tax on it now, and it then grows and comes out tax-free. The optimizer converts in low-tax years, typically between retiring and starting Social Security.\n\nSet a cap to limit the yearly amount (e.g. to keep tax bills predictable); 0 means no conversions. Leave empty for no cap.",
+        "value": "Dollars per year, e.g. 50000, or empty."
+      },
+      "harvest_gains": {
+        "body": "In years with low income, long-term capital gains can be taxed at 0%. Harvesting sells investments with gains in those years and buys them right back, so the gains are taxed at 0% and won't be taxed later.\n\nThis only matters if you have a taxable brokerage account with gains.",
+        "value": "On or off."
+      },
+      "aca_benchmark_premium": {
+        "body": "If you retire before 65, you need health insurance until Medicare. This is the yearly price of the second-lowest-cost silver plan for you on healthcare.gov (the benchmark plan). The premium tax credit lowers what you pay based on your income, and the optimizer keeps your income in check to protect it.\n\nWhen you fill this in, leave health insurance out of your planned expenses so it isn't counted twice. Use 0 if you will have retiree coverage.",
+        "value": "Dollars per year, e.g. 9000."
+      },
+      "other_medical_expenses": {
+        "body": "How much of each year's spending is out-of-pocket medical costs besides insurance premiums (deductibles, copays, dental, vision), which HSA money can pay tax-free. The plan uses it only to cap tax-free HSA withdrawals (with Medicare premiums); it does not add spending. Include these costs in your spending items, such as Healthcare.",
+        "value": "Dollars per year, e.g. 3000."
+      },
+      "rule_of_55_balance": {
+        "body": "If you leave your job in or after the year you turn 55, you can withdraw from that employer's 401(k) without the 10% early-withdrawal penalty. Enter the balance of that 401(k) (not IRAs) so the planner can use it before 59½.\n\nLeave empty if it doesn't apply, for example if you retire before 55 or roll the 401(k) into an IRA.",
+        "value": "A total in dollars, e.g. 300000, or empty."
+      },
+      "sepp_start_age": {
+        "body": "Substantially equal periodic payments (72(t)) let you take fixed yearly amounts from an IRA before 59½ without the 10% penalty. Once started, they must continue unchanged for 5 years or until 59½, whichever is later.\n\nEnter the age the payments start, together with the yearly payment. Leave empty if you won't use them.",
+        "value": "An age, e.g. 52, or empty."
+      },
+      "sepp_annual_payment": {
+        "body": "The fixed yearly amount of your 72(t) payments. IRS formulas set the maximum from your IRA balance and age; an online 72(t) calculator or your brokerage can work it out.",
+        "value": "Dollars per year, e.g. 20000."
+      },
+      "heirs_tax_rate": {
+        "body": "The income tax rate your heirs will pay on what they inherit in traditional IRAs and 401(k)s. They must withdraw it within 10 years and pay tax at their own rate; Roth and taxable accounts pass on without income tax.\n\nIt affects how the optimizer values leaving money in pre-tax accounts versus converting it.",
+        "value": "A percentage, e.g. 24."
+      },
+      "debts": {
+        "body": "Loans such as a mortgage or car loan. Each is paid on its schedule; the optimizer can also pay extra principal when that beats investing.\n\nIf you add a loan here, leave its payment out of your planned expenses so it isn't counted twice.",
+        "value": "One row per loan."
+      },
+      "debt_balance": {
+        "body": "What you still owe on this loan today, from your latest statement.",
+        "value": "A total in dollars, e.g. 180000."
+      },
+      "debt_rate": {
+        "body": "The loan's yearly interest rate (APR).",
+        "value": "A percentage, e.g. 3.5."
+      },
+      "debt_payment": {
+        "body": "What you pay on this loan in a year: principal and interest, 12 times the monthly payment. Property tax and insurance held in escrow belong in your planned expenses.",
+        "value": "Dollars per year, e.g. 14400."
+      },
+      "markets_method": {
+        "body": "Where each year's investment returns come from.\n\n‘My projection assumptions’ uses the returns on Projection Assumptions card on the Plan tab, before and after retirement, for every account.\n\n‘Fixed returns by asset class’ gives stocks, corporate bonds and Treasury notes a yearly return each; every account earns the blend of its own asset mix.\n\n‘Replay market history’ uses what actually happened, year by year, starting from the year you pick: a way to test a bad sequence such as retiring in 1966 or 2000.\n\n‘Historical average’ uses the compound average of a range of years, the same every year.\n\nYour investment fee is taken off every return. Cash always earns inflation.",
+        "value": "Choose one."
+      },
+      "fixed_returns": {
+        "body": "The yearly return of each asset class, before fees: stocks (the S&P 500 with dividends), Baa corporate bonds and 10-year Treasury notes. Cash earns inflation.\n\nThe presets are Owl's: Conservative is 6% stocks, 4% bonds, 3.3% notes with 2.8% inflation; Optimistic is 8.6%, 4.9%, 3.3% with 2.5% inflation. ‘Last 30 years’ switches to the historical average of 1996–2025.",
+        "value": "Percent per year, e.g. 6."
+      },
+      "start_year": {
+        "body": "The plan's first year earns what the markets returned in this year, the next year the year after, and so on. Past 2025 it wraps around to 1928.\n\nYears known for bad starts: 1929, 1937, 1966, 1969, 1973, 2000 and 2008.",
+        "value": "A year from 1928 to 2025."
+      },
+      "average_range": {
+        "body": "The years averaged. Each asset class earns the compound (geometric) average of its returns over these years, every year of the plan.",
+        "value": "Years from 1928 to 2025, at least two apart."
+      },
+      "inflation_method": {
+        "body": "With market history, inflation can come from the same years as the returns (the history's own inflation, or its average), or stay at a fixed rate.\n\nInflation raises your spending, tax brackets and Social Security each year, and cash earns it.",
+        "value": "Choose one."
+      },
+      "market_inflation": {
+        "body": "Yearly inflation for the plan. Spending, tax brackets and Social Security rise with it, and cash earns it. It starts at the Projection Assumptions' inflation.",
+        "value": "Percent per year, e.g. 2.5."
+      },
+      "asset_mix": {
+        "body": "How each type of account is invested: the share in stocks, corporate bonds, Treasury notes and cash.\n\nBy default it comes from your holdings and their asset classes. Equity, real estate, commodities, alternatives and crypto count as stocks; fixed income is split evenly between corporate bonds and Treasury notes; holdings without an asset class count as stocks.\n\nTurn this on to type your own mix instead, for example the mix you plan to move to.",
+        "value": "Percent of each account type, adding up to 100."
+      },
+      "target_mix": {
+        "body": "Moves every account type gradually from its starting mix to one target mix, reaching it at the age you choose and keeping it after: for example, from mostly stocks today to more bonds in retirement.",
+        "value": "Percent in each asset class, adding up to 100."
+      },
+      "glide": {
+        "body": "How the mix moves toward the target. A straight line changes the same amount every year. An S-curve changes slowly at first, fastest halfway, then slowly again (Owl's S-curve).",
+        "value": "Choose one."
+      },
+      "target_age": {
+        "body": "The age the target mix is reached. Leave it blank to reach it at the planning horizon.",
+        "value": "An age, e.g. 65."
+      },
+      "sell_current_home": {
+        "body": "Sells the home you own now in the year you buy the new one. What the sale brings in, after selling costs, goes into your accounts, the loan you pick is repaid, and the current home's yearly costs stop.\n\nThe gain on a main home is assumed to fall within the $250,000 exclusion, so the sale is not taxed.",
+        "value": "On or off."
+      },
+      "current_home_value": {
+        "body": "What your current home would sell for today. It grows at the new home's price growth until the sale.",
+        "value": "An amount, e.g. 350000."
+      },
+      "selling_cost_rate": {
+        "body": "Agent commission, transfer taxes and other costs of selling, as a share of the sale price.",
+        "value": "Percent, e.g. 6."
+      },
+      "current_home_debt": {
+        "body": "The debt, from the Debts list below, that the sale pays off: usually the current mortgage.",
+        "value": "Choose one of your debts, or none."
+      },
+      "leftover_partly": {
+        "body": "Leftover pay is what remains from your paychecks after spending, taxes, debt payments and contributions. When off, all of it is invested in your taxable account. When on, only the share you choose is invested and the rest is spent, which is closer to how most people actually save. A home sale's proceeds are still invested in full.",
+        "value": "On or off."
+      },
+      "leftover_invest_rate": {
+        "body": "How much of each working year's leftover pay goes into your taxable account; the rest is spent. The Leftover spent column of the yearly table shows that amount.",
+        "value": "Percent, e.g. 80."
+      },
+      "hsa_family_coverage": {
+        "body": "Turn on if your high-deductible plan covers your family, not just you. Family coverage has a higher HSA limit ($8,750 in 2026, against $4,400 for self-only).\n\nHSA contributions are held to the limit for your coverage, plus $1,000 from 55.",
+        "value": "On or off."
+      }
+    },
+    "calculated_at": "Calculated {{when}}.",
+    "balances_changed_up": "Your account balances are up {{pct}} since this was calculated. Recalculate to plan from today's balances.",
+    "balances_changed_down": "Your account balances are down {{pct}} since this was calculated. Recalculate to plan from today's balances.",
+    "cases": {
+      "label": "Case",
+      "current": "Current plan",
+      "save_as": "Save as case",
+      "save": "Save",
+      "load": "Load into my plan",
+      "rename": "Rename",
+      "delete": "Delete",
+      "cancel": "Cancel",
+      "name": "Name",
+      "default_name": "Retire at {{age}}",
+      "default_name_earliest": "Earliest retirement",
+      "save_title": "Save as a case",
+      "save_description": "Keeps a copy of these settings and their result under a name, so you can come back and compare without recalculating.",
+      "save_description_no_result": "Keeps a copy of these settings under a name. They have no up-to-date result yet: run the plan first to save one with them.",
+      "rename_title": "Rename case",
+      "rename_description": "Give this case a new name.",
+      "will_replace": "A case with this name already exists; saving replaces it.",
+      "name_taken": "Another case already has this name.",
+      "saved": "Saved case \"{{name}}\".",
+      "viewing_description": "A saved case is read-only. Load it into your plan to change its settings or recalculate it.",
+      "no_result": "This case was saved without a result. Load it into your plan and run it.",
+      "load_title": "Load \"{{name}}\" into your plan?",
+      "load_description": "This replaces your current plan settings, including your ages, spending, income and assumptions. They are not saved as a case; save them first to keep them.",
+      "delete_title": "Delete \"{{name}}\"?",
+      "delete_description": "The case and its saved result are removed. This cannot be undone."
+    },
+    "home": {
+      "title": "{{title}}: bought in {{year}} at age {{age}}",
+      "price": "Price",
+      "upfront": "Down payment and closing costs",
+      "mortgage": "Mortgage",
+      "mortgage_value": "{{amount}} at {{payment}}/mo",
+      "owning_costs": "Owning costs per year",
+      "sale_proceeds": "Current home sale, after costs",
+      "value_at_end": "Home value at the end",
+      "note": "Today's money. The down payment comes out of whichever accounts cost least in tax. The home's value is not in the after-tax estate above; it is listed here, beside it. Any mortgage left at the end is taken off the estate."
+    },
+    "compare": {
+      "open": "Compare",
+      "title": "Compare cases",
+      "description": "Saved cases and your current plan side by side, in today's money. Only cases saved with a result can be compared.",
+      "close": "Close",
+      "pick": "Pick up to {{max}}.",
+      "pick_two": "Pick at least two to compare.",
+      "how_set": "How the age was set",
+      "fixed_age": "Fixed age",
+      "earliest_age": "Earliest age (found {{age}})",
+      "objective": "Objective",
+      "objective_differs": "These cases optimize for different things (spending vs. what you leave), so their spending and estates are not like for like.",
+      "retirement_age": "Retirement age",
+      "first_year_spending": "Spending in the first year",
+      "lifetime_spending": "Lifetime spending",
+      "estate": "After-tax estate",
+      "home_value": "Home value at the end",
+      "lifetime_tax": "Lifetime income tax and penalties",
+      "health": "Medicare and ACA premiums",
+      "roth_conversions": "Roth conversions",
+      "claim_age": "Social Security claim age",
+      "success": "Chance of success",
+      "success_value": "{{rate}} ({{method}}, {{paths}} paths)",
+      "not_checked": "Not checked",
+      "solved_on": "Solved on",
+      "no_solution": "No solution",
+      "differences": "Settings that differ",
+      "no_differences": "The settings are the same; only the balances they started from differ.",
+      "more_differences_one": "and {{count}} more setting",
+      "more_differences_other": "and {{count}} more settings",
+      "balances": "Total balances",
+      "balances_note": "All accounts together at the start of each year, in today's money.",
+      "safe_spending": "Safe spending",
+      "safe_spending_value": "{{amount}} at {{rate}}%",
+      "empty": "Comparing needs at least two plans with results: your current plan once optimized, and cases saved with a result. Save a case from the bar above."
+    },
+    "safe_spending": {
+      "title": "Safe spending",
+      "description": "The most you could spend per year (in the shape of your planned expenses) and still succeed on the share of market paths you choose. Each path is solved once for the most it can fund, so this takes about as long as the chance-of-success check.",
+      "target": "Target success rate",
+      "running": "Solving every path… this can take a few minutes.",
+      "not_run": "No safe-spending search was saved with this case.",
+      "result": "{{amount}} a year",
+      "result_detail": "The first-year spending at least {{rate}}% of paths fund ({{method}}, {{paths}} paths), in today's money.",
+      "planned": "Your planned {{amount}} a year succeeds on {{rate}}% of these paths.",
+      "chart_label": "Spending {{amount}} a year",
+      "chart_rate": "Chance of success",
+      "chart_note": "Higher spending succeeds on fewer paths. The dashed lines mark your target rate and your planned spending. Nothing has to be left at the end; amounts include a 1% safety margin.",
+      "histogram_title": "Spending each path can fund",
+      "histogram_paths": "Paths",
+      "histogram_range": "{{from}} to {{to}} a year",
+      "by_year_title": "By year retirement starts (historical)",
+      "by_year_value": "Most it can spend",
+      "by_year_label": "Markets from {{year}}",
+      "distribution_note": "Each path's most first-year spending, today's money. Red marks paths that cannot fund your planned {{planned}} a year; the dashed line is your planned spending."
+    },
+    "choices": {
+      "title": "What each choice costs",
+      "description": "Re-solves the plan with one choice changed at a time and shows how much that moves what the plan maximizes: your yearly spending, or the estate you leave. It shows where a small change buys the most.",
+      "run": "Work out the costs",
+      "running": "Re-solving the plan for each choice… about a minute.",
+      "not_run": "No choice costs were saved with this case.",
+      "base_spending": "As planned: {{amount}} a year of spending (quick solve).",
+      "base_estate": "As planned: an after-tax estate of {{amount}} (quick solve).",
+      "choice": "If you…",
+      "effect": "Effect",
+      "minimumExpenses": "need {{amount}} a year more in must-have spending",
+      "spending": "spend {{amount}} a year more",
+      "bequestFloor": "leave {{amount}} more to heirs",
+      "retireLater": "retire one year later",
+      "retireEarlier": "retire one year earlier",
+      "homePurchase": "don't buy the planned home",
+      "conversionCap": "lift the {{amount}} cap on Roth conversions",
+      "claimAge": "let the plan pick your Social Security age (instead of {{age}})",
+      "more_spending": "+{{amount}} a year of spending",
+      "less_spending": "−{{amount}} a year of spending",
+      "more_estate": "+{{amount}} estate",
+      "less_estate": "−{{amount}} estate",
+      "no_change": "No change",
+      "no_solution": "No longer possible",
+      "note": "Today's money. Each row changes only that one choice, using quick solves, so small differences (under about 1%) are within solver noise."
+    },
+    "regret": {
+      "title": "Does this year's Roth conversion hold up?",
+      "description": "This year's conversion is the decision you make now; later years can adapt. This fixes this year's conversion at amounts around the recommended one, re-plans everything else on many market paths, and measures how much estate each amount gives up compared with the best amount on the same path.",
+      "run_historical": "Check on history (every 3rd year since 1928)",
+      "run_bootstrap": "Check on {{count}} resampled lifetimes",
+      "running": "Re-solving each amount on every path… this can take several minutes.",
+      "not_run": "No conversion check was saved with this case.",
+      "summary": "Recommended this year: {{recommended}}. Least regret across {{paths}} paths: {{best}}.",
+      "amount": "Convert this year",
+      "mean": "Average regret",
+      "worst": "Worst regret",
+      "best": "Best on",
+      "funded": "Spending funded",
+      "recommended": "recommended",
+      "note": "Regret is how much less after-tax estate (today's money) an amount leaves than the best amount on the same market path, with {{spending}} a year of spending held fixed. A low average and a low worst case mean the amount is a safe choice whatever markets do.",
+      "run_lognormal": "Check on {{count}} lognormal lifetimes"
+    },
+    "empty": {
+      "title": "No optimized plan yet",
+      "overview": "Set your plan up on the Plan tab, then optimize it. The optimized plan shows here: how much you can spend or leave, the taxes you pay, and what to do each year.",
+      "risk": "Optimize your plan first. This tab then tests how it holds up: its chance of success on past and resampled markets, the spending you can count on, what each choice costs, and whether this year's Roth conversion holds up.",
+      "open_plan": "Go to Plan",
+      "risk_infeasible": "This plan has no solution, so there is nothing to test. Change its settings on the Plan tab and optimize again."
+    },
+    "simulations": {
+      "title": "Monte Carlo settings",
+      "description": "How many market paths each Monte Carlo check draws, from {{min}} to {{max}}. Each path re-solves your whole plan, so time grows with the count: 100 takes a few minutes, 1,000 about ten times as long. More paths give steadier percentages. Resampled years reuse whole years since 1928; lognormal draws years from a fitted distribution, so it can produce years worse (or better) than any on record.",
+      "label": "Runs per check",
+      "regret_label": "Runs for the Roth conversion check",
+      "lifespans": "Random lifespans",
+      "lifespans_description": "Instead of ending every run at your planning horizon, each Monte Carlo run draws an age at death from an actuarial table, given you live to retire at {{age}}, and plans to it. Most runs end earlier than a conservative horizon and a few run past 100, so the success rate weighs bad markets and a long life together. Historical replays and the Roth conversion check keep the horizon.",
+      "sex": "Sex (for the table)",
+      "sex_placeholder": "Choose",
+      "sex_Female": "Female",
+      "sex_Male": "Male",
+      "table": "Mortality table",
+      "tables": {
+        "SSA2025": "General US population (SSA 2025)",
+        "VBT2015-SM": "Smokers (VBT 2015)",
+        "Pub2010-Safety": "Police, fire and corrections (Pub-2010)",
+        "Pub2010-General": "Government employees (Pub-2010)",
+        "RP2014": "Pension recipients (RP-2014)",
+        "VBT2015-NS": "Non-smokers in good health (VBT 2015)",
+        "IAM2012": "Annuity buyers, longest-lived (IAM 2012)",
+        "Pub2010-Teacher": "Teachers (Pub-2010)"
+      }
+    },
+    "stress": {
+      "title": "Stress tests",
+      "description": "Re-solves the plan under shocks you don't control. Each time, the optimizer re-plans conversions, withdrawals and spending around the shock, as you would, and shows how much it moves what the plan maximizes.",
+      "run": "Run the stress tests",
+      "running": "Re-solving the plan for each shock… about a minute.",
+      "not_run": "No stress tests were saved with this case.",
+      "stress": "If…",
+      "lowerReturns": "returns are 2 points lower every year",
+      "higherInflation": "inflation is 1.5 points higher every year",
+      "higherExpenses": "must-have expenses are 10% higher",
+      "socialSecurityCut": "Social Security pays only 77% of its promised benefit",
+      "liveLonger": "you live 5 years longer",
+      "retireInto": "retirement starts into the markets of {{year}}",
+      "note": "Today's money, using quick solves, so differences under about 1% are within solver noise. 77% is what the trustees project Social Security can pay once its trust fund runs out. The market years replay history from your first retirement year: 1929 the Depression, 1966 a decade of high inflation, 2000 two crashes."
+    },
+    "contributions": {
+      "title": "Contributions while working (today's money)",
+      "none": "The plan has no working years left, so there is nothing to contribute.",
+      "rerun": "Optimize again to see what goes into each account; this result was solved before the breakdown existed.",
+      "columns": {
+        "pre_tax_401k": "Pre-tax 401(k)",
+        "roth_401k": "Roth 401(k)",
+        "roth_ira": "Roth IRA",
+        "roth": "Roth",
+        "hsa": "HSA",
+        "employer": "Employer",
+        "taxable": "Taxable investing",
+        "total": "Total"
+      },
+      "capped_preTax401k": "Pre-tax 401(k) is held to the IRS limit from age {{age}}; growth would take it past.",
+      "capped_roth": "Roth is held to the IRS limit from age {{age}} (the 401(k) room pre-tax leaves, plus an IRA).",
+      "capped_hsa": "HSA is held to the IRS limit from age {{age}}.",
+      "roth_note": "Roth is the amount you entered; it can go to a Roth 401(k) or a Roth IRA.",
+      "note": "Limits are 2026 dollars, raised with inflation, with catch-ups from 50 (60–63 for the 401(k)). Pay not contributed or spent goes to the taxable account (Saved in the playbook)."
+    }
+  },
+  "home_purchase": {
+    "title": "Home purchase",
+    "description": "The home this goal saves for. The savings target is the down payment plus closing costs, at the price the home should have by the purchase date.",
+    "price": "Price today",
+    "price_hint": "Today's price; it grows with appreciation until you buy.",
+    "down_payment": "Down payment",
+    "closing_costs": "Closing costs",
+    "mortgage_rate": "Mortgage rate",
+    "term": "Mortgage term (years)",
+    "appreciation": "Home price growth per year",
+    "appreciation_hint": "Also used for the home's value later in the Tax Plan.",
+    "property_tax": "Property tax per year",
+    "insurance": "Homeowner's insurance per year",
+    "maintenance": "Maintenance per year",
+    "hoa": "HOA dues per month",
+    "when": "When you buy",
+    "when_date": "On the goal's target date",
+    "when_age": "At an age",
+    "age_needs_birth": "Buying at an age needs a birth month on your retirement goal.",
+    "age": "Age at purchase",
+    "date_from_goal": "Buying on {{date}}, the goal's target date.",
+    "date_missing": "Set a target date for this goal first.",
+    "price_then": "Price when you buy",
+    "savings_target": "Savings target",
+    "savings_target_value": "{{total}} ({{down}} down + {{closing}} closing)",
+    "loan": "Mortgage",
+    "monthly_payment": "Mortgage payment per month",
+    "monthly_owning": "Tax, insurance, upkeep and HOA per month",
+    "monthly_total": "Total housing per month",
+    "tax_plan_note": "Saving sets this goal's target and date. A retirement plan that includes this home uses these details.",
+    "save": "Save and set target"
+  },
+  "linked_home": {
+    "kicker": "Planned with retirement",
+    "headline": "Your {{retirement}} plan pays for this home",
+    "how_optimized": "The Tax Plan takes the down payment and closing costs from the accounts that cost the least in taxes, adds the mortgage and owning costs, and stops rent from the purchase on.",
+    "how_projection": "The retirement projection takes the down payment and closing costs from your portfolio in the purchase year and adds the mortgage and owning costs to your expenses once you retire.",
+    "purchase": "Purchase",
+    "price_then": "Price then",
+    "cash_needed": "Cash at purchase",
+    "monthly_housing": "Housing per month",
+    "no_date": "Not set",
+    "incomplete": "Enter the home's price and a purchase date below for the retirement plan to include it.",
+    "run_tax_plan": "Optimize the Tax Plan on your retirement goal to see which accounts pay for it.",
+    "tax_plan_year": "In {{year}}, the Tax Plan withdraws:",
+    "bucket_taxable": "Taxable",
+    "bucket_tax_deferred": "Tax-deferred",
+    "bucket_roth": "Roth",
+    "bucket_hsa": "HSA",
+    "tax_plan_note": "From the last Tax Plan run. The withdrawals cover the down payment, closing costs and that year's spending.",
+    "tax_plan_stale": "From an earlier Tax Plan run; the plan has changed since. Optimize again for current numbers.",
+    "tax_plan_missing": "The last Tax Plan run did not include this purchase. Optimize again on your retirement goal.",
+    "projection_year_prefix": "In {{year}}, your projection takes",
+    "projection_year_suffix": "from your portfolio for the down payment and closing costs.",
+    "projection_note": "Before you retire, the mortgage and owning costs are taken to come out of your pay; from retirement on they are part of your expenses.",
+    "loading": "Loading the retirement projection…",
+    "projection_missing": "The purchase is outside the retirement projection, or the projection is not available yet.",
+    "open_retirement": "Open retirement plan",
+    "funding_kicker": "Paying for it",
+    "funding_linked_title": "With your retirement plan",
+    "funding_accounts_title": "With its own accounts",
+    "funding_linked_hint": "The retirement plan pays for this home from your accounts. Switch to saving with this goal's own accounts to track a savings target instead.",
+    "funding_accounts_hint": "This goal saves from its own share of your accounts. Let your retirement plan pay for it instead; this replaces any other home in that plan.",
+    "unlink": "Save with its own accounts",
+    "link": "Plan it with my retirement goal"
   }
 }

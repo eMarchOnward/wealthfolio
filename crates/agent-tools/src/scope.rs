@@ -19,11 +19,18 @@ pub enum AgentScope {
     FinancialPlanningRead,
     HealthRead,
     ClassificationRead,
+    SpendingRead,
     ActivitiesDraft,
     ActivitiesWrite,
     ClassificationSuggest,
     ClassificationWrite,
     MarketDataWrite,
+    PlanningRun,
+    AccountsWrite,
+    GoalsWrite,
+    SpendingWrite,
+    PortfolioWrite,
+    HealthWrite,
 }
 
 impl AgentScope {
@@ -37,11 +44,18 @@ impl AgentScope {
         AgentScope::FinancialPlanningRead,
         AgentScope::HealthRead,
         AgentScope::ClassificationRead,
+        AgentScope::SpendingRead,
         AgentScope::ActivitiesDraft,
         AgentScope::ActivitiesWrite,
         AgentScope::ClassificationSuggest,
         AgentScope::ClassificationWrite,
         AgentScope::MarketDataWrite,
+        AgentScope::PlanningRun,
+        AgentScope::AccountsWrite,
+        AgentScope::GoalsWrite,
+        AgentScope::SpendingWrite,
+        AgentScope::PortfolioWrite,
+        AgentScope::HealthWrite,
     ];
 
     /// The read-only scopes — what the `read-only` preset grants. Kept
@@ -55,6 +69,7 @@ impl AgentScope {
         AgentScope::FinancialPlanningRead,
         AgentScope::HealthRead,
         AgentScope::ClassificationRead,
+        AgentScope::SpendingRead,
     ];
 
     /// Canonical wire format, e.g. `"accounts:read"`.
@@ -67,11 +82,18 @@ impl AgentScope {
             AgentScope::FinancialPlanningRead => "financial-planning:read",
             AgentScope::HealthRead => "health:read",
             AgentScope::ClassificationRead => "classification:read",
+            AgentScope::SpendingRead => "spending:read",
             AgentScope::ActivitiesDraft => "activities:draft",
             AgentScope::ActivitiesWrite => "activities:write",
             AgentScope::ClassificationSuggest => "classification:suggest",
             AgentScope::ClassificationWrite => "classification:write",
             AgentScope::MarketDataWrite => "market-data:write",
+            AgentScope::PlanningRun => "planning:run",
+            AgentScope::AccountsWrite => "accounts:write",
+            AgentScope::GoalsWrite => "goals:write",
+            AgentScope::SpendingWrite => "spending:write",
+            AgentScope::PortfolioWrite => "portfolio:write",
+            AgentScope::HealthWrite => "health:write",
         }
     }
 
@@ -170,7 +192,8 @@ impl AgentScopeSet {
 
     /// Validate scope dependencies. Returns a human-readable error when a
     /// granted scope is missing a prerequisite: committing requires the
-    /// matching draft/suggest scope, and quote writes require holdings reads.
+    /// matching draft/suggest scope, quote writes require holdings reads, and
+    /// each other write or run scope requires the read scope of what it changes.
     pub fn dependency_error(&self) -> Option<String> {
         if self.contains(AgentScope::ActivitiesWrite) && !self.contains(AgentScope::ActivitiesDraft)
         {
@@ -191,6 +214,18 @@ impl AgentScopeSet {
                 "market-data:write requires holdings:read (quote imports show stored quotes)"
                     .to_string(),
             );
+        }
+        for (scope, read) in [
+            (AgentScope::PlanningRun, AgentScope::FinancialPlanningRead),
+            (AgentScope::GoalsWrite, AgentScope::FinancialPlanningRead),
+            (AgentScope::AccountsWrite, AgentScope::AccountsRead),
+            (AgentScope::SpendingWrite, AgentScope::SpendingRead),
+            (AgentScope::PortfolioWrite, AgentScope::HoldingsRead),
+            (AgentScope::HealthWrite, AgentScope::HealthRead),
+        ] {
+            if self.contains(scope) && !self.contains(read) {
+                return Some(format!("{scope} requires {read}"));
+            }
         }
         None
     }
@@ -215,7 +250,7 @@ mod tests {
 
     #[test]
     fn parse_rejects_unknown() {
-        assert_eq!(AgentScope::parse("accounts:write"), None);
+        assert_eq!(AgentScope::parse("accounts:delete"), None);
         assert_eq!(AgentScope::parse(""), None);
     }
 
@@ -278,6 +313,25 @@ mod tests {
 
         set.insert(AgentScope::ClassificationSuggest);
         assert!(set.dependency_error().is_none());
+    }
+
+    #[test]
+    fn dependency_error_flags_platform_writes_without_their_read_scope() {
+        for (scope, read) in [
+            ("planning:run", "financial-planning:read"),
+            ("goals:write", "financial-planning:read"),
+            ("accounts:write", "accounts:read"),
+            ("spending:write", "spending:read"),
+            ("portfolio:write", "holdings:read"),
+            ("health:write", "health:read"),
+        ] {
+            assert!(AgentScopeSet::from_strs([scope])
+                .dependency_error()
+                .is_some());
+            assert!(AgentScopeSet::from_strs([scope, read])
+                .dependency_error()
+                .is_none());
+        }
     }
 
     #[test]

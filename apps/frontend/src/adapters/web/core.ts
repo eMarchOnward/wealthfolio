@@ -91,6 +91,25 @@ export const COMMANDS: CommandMap = {
   preview_save_up_overview: { method: "POST", path: "/goals/save-up/preview" },
   // Retirement plan simulations
   calculate_retirement_projection: { method: "POST", path: "/goals/retirement/projection" },
+  get_retirement_tax_plan_accounts: { method: "POST", path: "/goals/retirement/tax-accounts" },
+  optimize_retirement_tax_plan: { method: "POST", path: "/goals/retirement/tax-optimized" },
+  run_retirement_tax_success: { method: "POST", path: "/goals/retirement/tax-success" },
+  run_retirement_tax_safe_spending: {
+    method: "POST",
+    path: "/goals/retirement/tax-safe-spending",
+  },
+  run_retirement_tax_choice_costs: {
+    method: "POST",
+    path: "/goals/retirement/tax-choice-costs",
+  },
+  run_retirement_tax_stress_tests: {
+    method: "POST",
+    path: "/goals/retirement/tax-stress-tests",
+  },
+  run_retirement_tax_conversion_regret: {
+    method: "POST",
+    path: "/goals/retirement/tax-conversion-regret",
+  },
   run_retirement_monte_carlo: { method: "POST", path: "/goals/retirement/monte-carlo" },
   run_retirement_stress_tests: { method: "POST", path: "/goals/retirement/stress-tests" },
   run_retirement_scenario_analysis: {
@@ -119,6 +138,7 @@ export const COMMANDS: CommandMap = {
   save_internal_transfer_pair: { method: "POST", path: "/activities/transfer-pair" },
   link_transfer_activities: { method: "POST", path: "/activities/link" },
   unlink_transfer_activities: { method: "POST", path: "/activities/unlink" },
+  link_exact_transfer_matches: { method: "POST", path: "/activities/link-exact-matches" },
   // Activity import
   check_activities_import: { method: "POST", path: "/activities/import/check" },
   preview_import_assets: { method: "POST", path: "/activities/import/assets/preview" },
@@ -817,7 +837,14 @@ export const invoke = async <T>(command: string, payload?: Record<string, unknow
     case "run_retirement_stress_tests":
     case "run_retirement_scenario_analysis":
     case "run_retirement_decision_sensitivity_map":
-    case "run_retirement_sorr": {
+    case "run_retirement_sorr":
+    case "get_retirement_tax_plan_accounts":
+    case "optimize_retirement_tax_plan":
+    case "run_retirement_tax_success":
+    case "run_retirement_tax_safe_spending":
+    case "run_retirement_tax_choice_costs":
+    case "run_retirement_tax_stress_tests":
+    case "run_retirement_tax_conversion_regret": {
       body = JSON.stringify(payload);
       break;
     }

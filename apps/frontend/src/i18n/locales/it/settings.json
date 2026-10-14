@@ -1464,8 +1464,6 @@
     "dialog_client_config_desc": "Configurazione pronta da incollare (contiene questo token). Funziona con Claude, Cursor, Windsurf e Cline; VS Code e altri client differiscono — consulta la guida nella scheda del server MCP.",
     "dialog_copy_config_aria": "Copia la configurazione del client",
     "dialog_done": "Fatto",
-    "scope_locked_title": "Richiesto da Movimenti — conferma/scrittura",
-    "scope_locked_market_data_title": "Richiesto da Dati di mercato — scrittura",
     "dialog_scope_aria": "{{label}}: {{description}}",
     "token_label": "Token",
     "scope": {

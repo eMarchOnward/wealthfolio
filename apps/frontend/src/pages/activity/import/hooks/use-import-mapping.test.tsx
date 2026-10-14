@@ -29,6 +29,13 @@ describe("useImportMapping activity type mappings", () => {
     expect(mapping[ImportFormat.AMOUNT]).toBeUndefined();
   });
 
+  it("does not auto-map an account type column as the account", () => {
+    const mapping = initializeColumnMapping(["Trade date", "Type", "Account type", "Amount"]);
+
+    expect(mapping[ImportFormat.ACCOUNT]).toBeUndefined();
+    expect(initializeColumnMapping(["Date", "Account"])[ImportFormat.ACCOUNT]).toBe("Account");
+  });
+
   it("auto-maps tax and withholding aliases", () => {
     const tradeMapping = initializeColumnMapping(["Date", "Stamp Duty", "Amount"]);
     const incomeMapping = initializeColumnMapping(["Date", "Withholding Tax", "Amount"]);

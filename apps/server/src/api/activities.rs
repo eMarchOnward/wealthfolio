@@ -211,6 +211,15 @@ async fn link_transfer_activities(
     Ok(Json(pair))
 }
 
+async fn link_exact_transfer_matches(
+    axum::Extension(state): axum::Extension<Arc<AppState>>,
+) -> ApiResult<Json<usize>> {
+    let linked = state.activity_service.link_exact_transfer_matches().await?;
+    state.health_service.clear_cache().await;
+    // Domain events handle portfolio recalculation
+    Ok(Json(linked))
+}
+
 async fn unlink_transfer_activities(
     axum::Extension(state): axum::Extension<Arc<AppState>>,
     Json(body): Json<LinkTransferActivitiesBody>,
@@ -462,6 +471,10 @@ pub fn router<S: Clone + Send + Sync + 'static>() -> Router<S> {
         )
         .route("/activities/link", post(link_transfer_activities))
         .route("/activities/unlink", post(unlink_transfer_activities))
+        .route(
+            "/activities/link-exact-matches",
+            post(link_exact_transfer_matches),
+        )
         .route("/activities/import/check", post(check_activities_import))
         .route(
             "/activities/import/assets/preview",

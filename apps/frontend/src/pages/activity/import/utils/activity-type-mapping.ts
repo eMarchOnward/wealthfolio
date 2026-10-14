@@ -22,11 +22,22 @@ function isLegacyActivityLabelMatch(
   );
 }
 
+/** Opt-in prefix match for labels with variable suffixes, e.g. "TRANSFER FROM *". */
+function isWildcardActivityLabelMatch(
+  normalizedCsvValue: string,
+  normalizedMappedValue: string,
+): boolean {
+  if (!normalizedMappedValue.endsWith("*")) return false;
+  const prefix = normalizedMappedValue.slice(0, -1);
+  return prefix.length > 0 && normalizedCsvValue.startsWith(prefix);
+}
+
 /**
  * Find the best activity type match for a CSV value.
  * Only explicit user/template mappings count as resolved.
  * A narrow legacy fallback keeps old 12-character truncated mappings working
  * without reintroducing broad prefix collisions like TRANSFER_OUT vs TRANSFER_OUT_FEE.
+ * Mapped values ending in "*" match any label with that prefix; exact matches win.
  */
 export function findMappedActivityType(
   csvValue: string,
@@ -43,7 +54,10 @@ export function findMappedActivityType(
         return activityType as ActivityType;
       }
 
-      if (isLegacyActivityLabelMatch(normalized, normalizedValue)) {
+      if (
+        isWildcardActivityLabelMatch(normalized, normalizedValue) ||
+        isLegacyActivityLabelMatch(normalized, normalizedValue)
+      ) {
         if (legacyMatch && legacyMatch !== activityType) {
           return null;
         }

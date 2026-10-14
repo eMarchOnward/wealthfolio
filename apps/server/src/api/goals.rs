@@ -16,10 +16,14 @@ use serde::Deserialize;
 use wealthfolio_core::{
     accounts::AccountServiceTrait,
     goals::{
-        validate_retirement_plan, Goal, GoalFundingRule, GoalFundingRuleInput, GoalPlan, NewGoal,
-        SaveGoalPlan,
+        account_asset_map, cost_basis_map, validate_retirement_plan, AccountAssetMap, Goal,
+        GoalFundingRule, GoalFundingRuleInput, GoalPlan, NewGoal, SaveGoalPlan,
     },
-    planning::retirement::{normalize_retirement_plan_ages, RetirementPlan, RetirementTimingMode},
+    planning::retirement::{
+        normalize_retirement_plan_ages, RetirementPlan, RetirementTimingMode, SuccessPathMode,
+        TaxOptimizedPlan, TaxOptimizerAccounts, TaxPlanChoiceCosts, TaxPlanConversionRegret,
+        TaxPlanSafeSpending, TaxPlanStressTests, TaxPlanSuccess,
+    },
     planning::{compute_save_up_overview, validate_save_up_input, SaveUpInput, SaveUpOverview},
     portfolio::fire::{
         self, DecisionSensitivityMap, DecisionSensitivityMatrix, MonteCarloResult,
@@ -336,6 +340,188 @@ struct RetirementMonteCarloRequest {
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
+struct TaxOptimizedPlanRequest {
+    goal_id: String,
+}
+
+/// Current values, cost bases and holdings by asset class of every account:
+/// the inputs of the tax-optimized plan.
+async fn tax_plan_maps(
+    state: &AppState,
+) -> ApiResult<(HashMap<String, f64>, HashMap<String, f64>, AccountAssetMap)> {
+    let valuation_map = build_valuation_map(state).await?;
+    let account_ids: Vec<String> = valuation_map.keys().cloned().collect();
+    let latest = state
+        .valuation_service
+        .get_latest_valuations(&account_ids)?;
+    let base_currency = state
+        .base_currency
+        .read()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+        .clone();
+    let asset_map = account_asset_map(
+        state.allocation_service.as_ref(),
+        &account_ids,
+        &base_currency,
+    )
+    .await?;
+    Ok((valuation_map, cost_basis_map(&latest), asset_map))
+}
+
+/// Starting balances and asset mixes the tax-optimized plan begins from.
+async fn retirement_tax_accounts(
+    axum::Extension(state): axum::Extension<Arc<AppState>>,
+    Json(req): Json<TaxOptimizedPlanRequest>,
+) -> ApiResult<Json<TaxOptimizerAccounts>> {
+    let (valuation_map, cost_basis, asset_map) = tax_plan_maps(&state).await?;
+    let accounts = state
+        .goal_service
+        .retirement_tax_plan_accounts(&req.goal_id, &valuation_map, &cost_basis, &asset_map)
+        .await?;
+    Ok(Json(accounts))
+}
+
+/// Solves the tax-optimized plan of a retirement goal (MILP; can take a minute).
+async fn retirement_tax_optimized(
+    axum::Extension(state): axum::Extension<Arc<AppState>>,
+    Json(req): Json<TaxOptimizedPlanRequest>,
+) -> ApiResult<Json<TaxOptimizedPlan>> {
+    let (valuation_map, cost_basis, asset_map) = tax_plan_maps(&state).await?;
+    let plan = state
+        .goal_service
+        .optimize_retirement_tax_plan(&req.goal_id, &valuation_map, &cost_basis, &asset_map)
+        .await?;
+    Ok(Json(plan))
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct TaxPlanSuccessRequest {
+    goal_id: String,
+    mode: SuccessPathMode,
+    #[serde(default)]
+    retirement_age: Option<u32>,
+}
+
+/// Chance the tax-optimized plan's expenses are funded across return paths.
+async fn retirement_tax_success(
+    axum::Extension(state): axum::Extension<Arc<AppState>>,
+    Json(req): Json<TaxPlanSuccessRequest>,
+) -> ApiResult<Json<TaxPlanSuccess>> {
+    let (valuation_map, cost_basis, asset_map) = tax_plan_maps(&state).await?;
+    let report = state
+        .goal_service
+        .retirement_tax_plan_success(
+            &req.goal_id,
+            &valuation_map,
+            &cost_basis,
+            &asset_map,
+            req.mode,
+            req.retirement_age,
+        )
+        .await?;
+    Ok(Json(report))
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct TaxPlanSafeSpendingRequest {
+    goal_id: String,
+    mode: SuccessPathMode,
+    #[serde(default)]
+    retirement_age: Option<u32>,
+    target_rate: f64,
+}
+
+/// The most the tax-optimized plan can spend at a target success rate.
+async fn retirement_tax_safe_spending(
+    axum::Extension(state): axum::Extension<Arc<AppState>>,
+    Json(req): Json<TaxPlanSafeSpendingRequest>,
+) -> ApiResult<Json<TaxPlanSafeSpending>> {
+    let (valuation_map, cost_basis, asset_map) = tax_plan_maps(&state).await?;
+    let report = state
+        .goal_service
+        .retirement_tax_plan_safe_spending(
+            &req.goal_id,
+            &valuation_map,
+            &cost_basis,
+            &asset_map,
+            req.mode,
+            req.retirement_age,
+            req.target_rate,
+        )
+        .await?;
+    Ok(Json(report))
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct TaxPlanChoiceCostsRequest {
+    goal_id: String,
+    #[serde(default)]
+    retirement_age: Option<u32>,
+}
+
+/// What each choice of the tax-optimized plan costs its goal.
+async fn retirement_tax_choice_costs(
+    axum::Extension(state): axum::Extension<Arc<AppState>>,
+    Json(req): Json<TaxPlanChoiceCostsRequest>,
+) -> ApiResult<Json<TaxPlanChoiceCosts>> {
+    let (valuation_map, cost_basis, asset_map) = tax_plan_maps(&state).await?;
+    let report = state
+        .goal_service
+        .retirement_tax_plan_choice_costs(
+            &req.goal_id,
+            &valuation_map,
+            &cost_basis,
+            &asset_map,
+            req.retirement_age,
+        )
+        .await?;
+    Ok(Json(report))
+}
+
+/// The tax-optimized plan re-solved under shocks it does not control.
+async fn retirement_tax_stress_tests(
+    axum::Extension(state): axum::Extension<Arc<AppState>>,
+    Json(req): Json<TaxPlanChoiceCostsRequest>,
+) -> ApiResult<Json<TaxPlanStressTests>> {
+    let (valuation_map, cost_basis, asset_map) = tax_plan_maps(&state).await?;
+    let report = state
+        .goal_service
+        .retirement_tax_plan_stress_tests(
+            &req.goal_id,
+            &valuation_map,
+            &cost_basis,
+            &asset_map,
+            req.retirement_age,
+        )
+        .await?;
+    Ok(Json(report))
+}
+
+/// How this year's recommended Roth conversion fares across market paths.
+async fn retirement_tax_conversion_regret(
+    axum::Extension(state): axum::Extension<Arc<AppState>>,
+    Json(req): Json<TaxPlanSuccessRequest>,
+) -> ApiResult<Json<TaxPlanConversionRegret>> {
+    let (valuation_map, cost_basis, asset_map) = tax_plan_maps(&state).await?;
+    let report = state
+        .goal_service
+        .retirement_tax_plan_conversion_regret(
+            &req.goal_id,
+            &valuation_map,
+            &cost_basis,
+            &asset_map,
+            req.mode,
+            req.retirement_age,
+        )
+        .await?;
+    Ok(Json(report))
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct RetirementSorrRequest {
     plan: RetirementPlan,
     portfolio_at_fire: f64,
@@ -600,5 +786,33 @@ pub fn router<S: Clone + Send + Sync + 'static>() -> Router<S> {
         .route(
             "/goals/retirement/sequence-of-returns",
             axum::routing::post(retirement_sequence_of_returns),
+        )
+        .route(
+            "/goals/retirement/tax-accounts",
+            axum::routing::post(retirement_tax_accounts),
+        )
+        .route(
+            "/goals/retirement/tax-optimized",
+            axum::routing::post(retirement_tax_optimized),
+        )
+        .route(
+            "/goals/retirement/tax-success",
+            axum::routing::post(retirement_tax_success),
+        )
+        .route(
+            "/goals/retirement/tax-safe-spending",
+            axum::routing::post(retirement_tax_safe_spending),
+        )
+        .route(
+            "/goals/retirement/tax-choice-costs",
+            axum::routing::post(retirement_tax_choice_costs),
+        )
+        .route(
+            "/goals/retirement/tax-stress-tests",
+            axum::routing::post(retirement_tax_stress_tests),
+        )
+        .route(
+            "/goals/retirement/tax-conversion-regret",
+            axum::routing::post(retirement_tax_conversion_regret),
         )
 }

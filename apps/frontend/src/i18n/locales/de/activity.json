@@ -200,6 +200,7 @@
   "page": {
     "import_from_csv": "Aus CSV importieren",
     "transfer_holdings": "Bestände übertragen",
+    "link_matching_transfers": "Passende Überweisungen verknüpfen",
     "add_personal_asset": "Persönlichen Vermögenswert hinzufügen",
     "add_activities": "Aktivitäten hinzufügen",
     "ask_ai_categorize": "KI um Kategorisierung bitten",

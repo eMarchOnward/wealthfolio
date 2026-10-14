@@ -223,6 +223,16 @@ export const linkTransferActivities = async (
   }
 };
 
+/** Links every unlinked transfer with exactly one same-day, same-amount match. Returns pairs linked. */
+export const linkExactTransferMatches = async (): Promise<number> => {
+  try {
+    return await invoke<number>("link_exact_transfer_matches");
+  } catch (err) {
+    logger.error("Error linking exact transfer matches.");
+    throw err;
+  }
+};
+
 export const unlinkTransferActivities = async (
   activityAId: string,
   activityBId: string,

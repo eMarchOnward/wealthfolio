@@ -11,6 +11,7 @@ import {
   Page,
   PageContent,
   PageHeader,
+  useAmountFormatting,
 } from "@wealthfolio/ui";
 import {
   Card,
@@ -26,6 +27,8 @@ import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { useCreateGoalFlow } from "../hooks/use-create-goal-flow";
 import { useGoals } from "../hooks/use-goals";
+import { useRetirementHomeLink } from "../hooks/use-home-link";
+import { DEFAULT_HOME_PURCHASE, homePurchaseCosts } from "../save-up/lib/home-purchase";
 import { toast } from "sonner";
 import {
   DEFAULT_RETIREMENT_PLAN,
@@ -38,6 +41,10 @@ import {
 const DEFAULT_RETIREMENT_CURRENT_AGE = 30;
 const DEFAULT_TRADITIONAL_RETIREMENT_AGE = 65;
 const DEFAULT_FIRE_INDEPENDENCE_AGE = 50;
+const DEFAULT_HOME_DOWN_PAYMENT_PERCENT = DEFAULT_HOME_PURCHASE.downPaymentRate * 100;
+
+/** How a home goal is paid for: by the retirement plan, or from its own accounts. */
+type HomeFunding = "retirement" | "accounts";
 /** Cover image by convention: /goals/{goalType}.png */
 function coverImageSrc(goalType: string): string {
   return `/goals/${goalType}.png`;
@@ -80,6 +87,11 @@ export default function GoalNewPage() {
   const [retirementTargetAge, setRetirementTargetAge] = useState(
     DEFAULT_TRADITIONAL_RETIREMENT_AGE,
   );
+  const [homePrice, setHomePrice] = useState(0);
+  const [downPaymentPercent, setDownPaymentPercent] = useState(DEFAULT_HOME_DOWN_PAYMENT_PERCENT);
+  const [homeFunding, setHomeFunding] = useState<HomeFunding>("accounts");
+  const homeLink = useRetirementHomeLink();
+  const { formatAmount } = useAmountFormatting();
 
   const goalTemplates = useMemo<GoalTemplate[]>(
     () => [
@@ -133,6 +145,12 @@ export default function GoalNewPage() {
   const retirementExists = hasRetirementGoal(goals);
   const template = goalTemplates.find((tmpl) => tmpl.type === selectedType);
   const isRetirement = selectedType === "retirement";
+  const isHome = selectedType === "home";
+  const planWithRetirement = isHome && homeFunding === "retirement";
+  const replacedHome = goals.find(
+    (goal) => goal.id === homeLink.linkedHomeId && goal.statusLifecycle === "active",
+  );
+  const homeIncomplete = isHome && (homePrice <= 0 || (planWithRetirement && !targetDate));
   const baseCurrency = settings?.baseCurrency ?? "USD";
   const trimmedTitle = title.trim();
   const trimmedDescription = description.trim();
@@ -171,16 +189,29 @@ export default function GoalNewPage() {
     setTargetDate("");
     setRetirementBirthYearMonth(defaultRetirementBirthYearMonth);
     setRetirementTargetAge(DEFAULT_TRADITIONAL_RETIREMENT_AGE);
+    setHomePrice(0);
+    setDownPaymentPercent(DEFAULT_HOME_DOWN_PAYMENT_PERCENT);
+    setHomeFunding(retirementExists ? "retirement" : "accounts");
   };
 
+  // A home goal saves (or plans) for the down payment and closing costs on
+  // the price the home will have by the purchase date.
+  const homePurchase = {
+    ...DEFAULT_HOME_PURCHASE,
+    price: Math.max(0, homePrice),
+    downPaymentRate: Math.min(Math.max(downPaymentPercent, 0), 100) / 100,
+  };
+  const homeCosts = homePurchaseCosts(homePurchase, targetDate || todayISO, today);
+  const homeTarget = Math.round(homeCosts?.savingsTarget ?? 0);
+
   const handleCreate = () => {
-    if (!selectedType || !template || !trimmedTitle) return;
+    if (!selectedType || !template || !trimmedTitle || homeIncomplete) return;
 
     const goalInput = {
       goalType: selectedType,
       title: trimmedTitle,
       description: trimmedDescription || undefined,
-      targetAmount: isRetirement ? undefined : Math.max(0, targetAmount),
+      targetAmount: isRetirement ? undefined : isHome ? homeTarget : Math.max(0, targetAmount),
       coverImageKey: selectedType,
       currency: baseCurrency,
       targetDate: !isRetirement && targetDate ? targetDate : undefined,
@@ -209,7 +240,16 @@ export default function GoalNewPage() {
             ),
           ),
         }
-      : undefined;
+      : isHome
+        ? {
+            planKind: "save_up" as const,
+            settingsJson: JSON.stringify({
+              homePurchase,
+              targetAmount: homeTarget,
+              ...(targetDate ? { targetDate } : {}),
+            }),
+          }
+        : undefined;
 
     createGoalFlow.mutate(
       {
@@ -218,7 +258,13 @@ export default function GoalNewPage() {
       },
       {
         onSuccess: ({ goal }) => {
-          navigate(`/goals/${goal.id}`);
+          if (!planWithRetirement) {
+            navigate(`/goals/${goal.id}`);
+            return;
+          }
+          homeLink.link.mutate(goal.id, {
+            onSettled: () => navigate(`/goals/${goal.id}`),
+          });
         },
       },
     );
@@ -329,7 +375,7 @@ export default function GoalNewPage() {
                           {t("goals:new.planning_style_hint")}
                         </p>
                       </div>
-                      <div className="grid grid-cols-2 gap-3">
+                      <div className="grid gap-3 sm:grid-cols-3">
                         <button
                           type="button"
                           className={`rounded-xl border p-3 text-left transition-colors ${
@@ -358,6 +404,22 @@ export default function GoalNewPage() {
                           <p className="text-sm font-medium">{t("goals:new.planner_fire")}</p>
                           <p className="text-muted-foreground text-xs">
                             {t("goals:new.planner_fire_hint")}
+                          </p>
+                        </button>
+                        <button
+                          type="button"
+                          className={`rounded-xl border p-3 text-left transition-colors ${
+                            plannerMode === "optimized"
+                              ? "border-primary bg-primary/5"
+                              : "border-border/60 hover:border-muted-foreground/60"
+                          }`}
+                          onClick={() => setPlannerModeWithDefaultAge("optimized")}
+                        >
+                          <p className="text-sm font-medium">
+                            {t("goals:new.planner_tax_optimized")}
+                          </p>
+                          <p className="text-muted-foreground text-xs">
+                            {t("goals:new.planner_tax_optimized_hint")}
                           </p>
                         </button>
                       </div>
@@ -409,7 +471,122 @@ export default function GoalNewPage() {
                     </div>
                   )}
 
-                  {!isRetirement && (
+                  {isHome && (
+                    <>
+                      <div className="space-y-2">
+                        <Label htmlFor="home-price">{t("goals:new.home_price")}</Label>
+                        <MoneyInput
+                          name="home-price"
+                          value={homePrice}
+                          onValueChange={(value) => setHomePrice(value ?? 0)}
+                          thousandSeparator
+                          maxDecimalPlaces={0}
+                          className="w-full"
+                        />
+                        {homePrice <= 0 && (
+                          <p className="text-destructive text-xs">
+                            {t("goals:new.home_price_required")}
+                          </p>
+                        )}
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="home-down-payment">
+                          {t("goals:new.home_down_payment")}
+                        </Label>
+                        <div className="relative">
+                          <Input
+                            id="home-down-payment"
+                            type="number"
+                            min={0}
+                            max={100}
+                            step={1}
+                            value={downPaymentPercent}
+                            onChange={(event) =>
+                              setDownPaymentPercent(Number(event.target.value) || 0)
+                            }
+                            className="w-full pr-8 tabular-nums"
+                          />
+                          <span className="text-muted-foreground pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs">
+                            %
+                          </span>
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="goal-target-date">
+                          {t("goals:new.home_purchase_date")}
+                        </Label>
+                        <DatePickerInput
+                          id="goal-target-date"
+                          value={targetDate}
+                          onChange={(date) => setTargetDate(date ? formatDateISO(date) : "")}
+                        />
+                        {planWithRetirement && !targetDate && (
+                          <p className="text-destructive text-xs">
+                            {t("goals:new.home_date_required")}
+                          </p>
+                        )}
+                      </div>
+                      <div className="text-muted-foreground flex items-end text-xs leading-relaxed">
+                        {homeCosts && homePrice > 0
+                          ? t("goals:new.home_cash_needed", {
+                              amount: formatAmount(homeTarget, baseCurrency),
+                            })
+                          : t("goals:new.home_details_later")}
+                      </div>
+                      <div className="border-border/60 space-y-3 border-t pt-4 sm:col-span-2">
+                        <div>
+                          <p className="text-sm font-medium">{t("goals:new.home_funding")}</p>
+                          <p className="text-muted-foreground mt-1 text-xs">
+                            {t("goals:new.home_funding_hint")}
+                          </p>
+                        </div>
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          <button
+                            type="button"
+                            disabled={!retirementExists}
+                            className={`rounded-xl border p-3 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+                              homeFunding === "retirement"
+                                ? "border-primary bg-primary/5"
+                                : "border-border/60 hover:border-muted-foreground/60"
+                            }`}
+                            onClick={() => setHomeFunding("retirement")}
+                          >
+                            <p className="text-sm font-medium">
+                              {t("goals:new.home_with_retirement")}
+                            </p>
+                            <p className="text-muted-foreground text-xs">
+                              {retirementExists
+                                ? t("goals:new.home_with_retirement_hint")
+                                : t("goals:new.home_with_retirement_needs_goal")}
+                            </p>
+                          </button>
+                          <button
+                            type="button"
+                            className={`rounded-xl border p-3 text-left transition-colors ${
+                              homeFunding === "accounts"
+                                ? "border-primary bg-primary/5"
+                                : "border-border/60 hover:border-muted-foreground/60"
+                            }`}
+                            onClick={() => setHomeFunding("accounts")}
+                          >
+                            <p className="text-sm font-medium">
+                              {t("goals:new.home_own_accounts")}
+                            </p>
+                            <p className="text-muted-foreground text-xs">
+                              {t("goals:new.home_own_accounts_hint")}
+                            </p>
+                          </button>
+                        </div>
+                        {planWithRetirement && replacedHome && (
+                          <p className="text-muted-foreground text-xs">
+                            {t("goals:new.home_replaces", { title: replacedHome.title })}
+                          </p>
+                        )}
+                      </div>
+                    </>
+                  )}
+
+                  {!isRetirement && !isHome && (
                     <>
                       <div className="space-y-2">
                         <Label htmlFor="goal-target-amount">{t("goals:new.target_amount")}</Label>
@@ -460,9 +637,16 @@ export default function GoalNewPage() {
               <Button
                 className="flex-1"
                 onClick={handleCreate}
-                disabled={createGoalFlow.isPending || !trimmedTitle}
+                disabled={
+                  createGoalFlow.isPending ||
+                  homeLink.link.isPending ||
+                  !trimmedTitle ||
+                  homeIncomplete
+                }
               >
-                {createGoalFlow.isPending ? t("goals:new.creating") : t("goals:new.create_goal")}
+                {createGoalFlow.isPending || homeLink.link.isPending
+                  ? t("goals:new.creating")
+                  : t("goals:new.create_goal")}
               </Button>
             </div>
           </div>

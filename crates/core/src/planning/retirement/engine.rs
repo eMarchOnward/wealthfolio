@@ -191,6 +191,31 @@ pub(crate) fn annual_expenses_at_year(
     (total, essential)
 }
 
+/// This year's expenses that are paid from the portfolio even before
+/// retirement (`paid_while_working`), with `general_factor` the cumulative
+/// inflation since today for items without their own rate.
+pub(crate) fn expenses_paid_while_working(
+    budget: &ExpenseBudget,
+    age: u32,
+    years_from_now: u32,
+    general_factor: f64,
+) -> f64 {
+    budget
+        .items
+        .iter()
+        .filter(|item| item.paid_while_working)
+        .filter(|item| item.start_age.is_none_or(|start| age >= start))
+        .filter(|item| item.end_age.is_none_or(|end| age < end))
+        .map(|item| {
+            let factor = match item.inflation_rate {
+                Some(rate) => (1.0 + rate).powi(years_from_now as i32),
+                None => general_factor,
+            };
+            item.monthly_amount * 12.0 * factor
+        })
+        .sum()
+}
+
 /// Like `annual_expenses_at_year` but uses a stochastic cumulative inflation factor
 /// for buckets that have no custom `inflation_rate`, and deterministic `(1+rate)^years`
 /// for buckets with an explicit rate (e.g. healthcare). This matches the old MC behaviour
@@ -1078,9 +1103,22 @@ pub(crate) fn project_retirement_with_mode_cached(
             let annual_contribution = monthly_contribution * 12.0;
             let contribution_end_value =
                 end_of_year_value_of_monthly_contributions(monthly_contribution, r);
-            let grown_buckets = apply_growth(buckets, r);
+            let mut grown_buckets = apply_growth(buckets, r);
+            let paid_now = expenses_paid_while_working(
+                &plan.expenses,
+                age,
+                i,
+                (1.0 + inflation).powi(i as i32),
+            );
+            let paid = (paid_now > 0.0).then(|| {
+                apply_planned_spending_withdrawal(&grown_buckets, paid_now, 0.0, &plan.tax, age)
+            });
+            if let Some(outcome) = &paid {
+                grown_buckets = outcome.remaining_buckets;
+            }
             let next_buckets = add_contribution(grown_buckets, contribution_end_value, &plan.tax);
             let portfolio_end_value = next_buckets.total().max(0.0);
+            let funded = paid.as_ref().map_or(0.0, |outcome| outcome.spending_funded);
 
             year_by_year.push(YearlySnapshot {
                 age,
@@ -1089,15 +1127,15 @@ pub(crate) fn project_retirement_with_mode_cached(
                 portfolio_value: portfolio,
                 portfolio_end_value,
                 annual_contribution,
-                annual_withdrawal: 0.0,
+                annual_withdrawal: funded,
                 annual_income: income,
-                net_withdrawal_from_portfolio: 0.0,
+                net_withdrawal_from_portfolio: funded,
                 pension_assets,
-                annual_taxes: None,
-                gross_withdrawal: None,
-                planned_expenses: None,
-                funded_expenses: None,
-                annual_shortfall: None,
+                annual_taxes: paid.as_ref().map(|outcome| outcome.tax_amount),
+                gross_withdrawal: paid.as_ref().map(|outcome| outcome.gross_withdrawal),
+                planned_expenses: paid.as_ref().map(|_| paid_now),
+                funded_expenses: paid.as_ref().map(|_| funded),
+                annual_shortfall: paid.as_ref().map(|_| (paid_now - funded).max(0.0)),
             });
 
             buckets = next_buckets;
@@ -1168,6 +1206,9 @@ mod tests {
                     start_age: None,
                     end_age: None,
                     essential: None,
+                    paid_while_working: false,
+                    yearly: false,
+                    ends_at_home_purchase: false,
                 }],
             },
             income_streams: vec![],
@@ -1183,7 +1224,47 @@ mod tests {
             },
             tax: None,
             currency: "EUR".to_string(),
+            tax_optimizer: None,
         }
+    }
+
+    #[test]
+    fn expenses_paid_while_working_leave_the_portfolio_before_retirement() {
+        let mut plan = base_plan();
+        let without = project_retirement(&plan, 300_000.0, AS_OF);
+        plan.expenses.items.push(ExpenseBucket {
+            id: Some("down".into()),
+            label: None,
+            monthly_amount: 5_000.0,
+            inflation_rate: Some(0.0),
+            start_age: Some(40),
+            end_age: Some(41),
+            essential: Some(true),
+            paid_while_working: true,
+            yearly: false,
+            ends_at_home_purchase: false,
+        });
+        let with = project_retirement(&plan, 300_000.0, AS_OF);
+
+        let year = |projection: &FireProjection, age: u32| {
+            projection
+                .year_by_year
+                .iter()
+                .find(|snapshot| snapshot.age == age)
+                .cloned()
+                .expect("year")
+        };
+        let purchase = year(&with, 40);
+        assert_eq!(purchase.phase, "accumulation");
+        assert!((purchase.net_withdrawal_from_portfolio - 60_000.0).abs() < 1e-6);
+        assert_eq!(purchase.planned_expenses, Some(60_000.0));
+        assert!(
+            year(&with, 41).portfolio_value < year(&without, 41).portfolio_value - 59_000.0,
+            "the down payment leaves the portfolio"
+        );
+        // Other expenses before retirement still come out of income.
+        assert_eq!(year(&with, 39).net_withdrawal_from_portfolio, 0.0);
+        assert_eq!(year(&with, 42).net_withdrawal_from_portfolio, 0.0);
     }
 
     #[test]
@@ -2045,6 +2126,9 @@ mod tests {
             start_age: None,
             end_age: Some(60),
             essential: None,
+            paid_while_working: false,
+            yearly: false,
+            ends_at_home_purchase: false,
         });
         let proj = project_retirement(&plan, 500_000.0, AS_OF);
         // Find fire-phase snapshots
@@ -2081,6 +2165,9 @@ mod tests {
                 start_age: None,
                 end_age: Some(65),
                 essential: Some(true),
+                paid_while_working: false,
+                yearly: false,
+                ends_at_home_purchase: false,
             },
             ExpenseBucket {
                 id: None,
@@ -2090,6 +2177,9 @@ mod tests {
                 start_age: Some(70),
                 end_age: None,
                 essential: Some(false),
+                paid_while_working: false,
+                yearly: false,
+                ends_at_home_purchase: false,
             },
         ];
 
@@ -2115,6 +2205,9 @@ mod tests {
             start_age: None,
             end_age: None,
             essential: None,
+            paid_while_working: false,
+            yearly: false,
+            ends_at_home_purchase: false,
         });
         plan.investment.inflation_rate = 0.02; // 2% general
 
@@ -2188,6 +2281,9 @@ mod tests {
             start_age: None,
             end_age: Some(60),
             essential: None,
+            paid_while_working: false,
+            yearly: false,
+            ends_at_home_purchase: false,
         });
         let target_55 = compute_required_capital(&p, 55).expect("target should be reachable");
         let target_65 = compute_required_capital(&p, 65).expect("target should be reachable");
@@ -2249,6 +2345,9 @@ mod tests {
             start_age: None,
             end_age: Some(65),
             essential: None,
+            paid_while_working: false,
+            yearly: false,
+            ends_at_home_purchase: false,
         });
         let proj = project_retirement(&plan, 800_000.0, AS_OF);
         let at_60 = proj

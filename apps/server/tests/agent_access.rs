@@ -297,7 +297,9 @@ async fn mcp_pat_lifecycle() {
     let session = mcp_initialize(&server, &pat).await;
 
     // tools/list -> the read-only catalog: 16 read tools + get_import_mapping
-    // and find_transfer_matches (also activities:read) = 18.
+    // and find_transfer_matches (also activities:read) = 18, plus the 18
+    // platform reads these scopes reach (goal planning, allocation targets,
+    // alternative assets, market data, settings, import templates) = 36.
     let response = mcp_post(
         &server,
         Some(&pat),
@@ -310,8 +312,8 @@ async fn mcp_pat_lifecycle() {
     let tools = list["result"]["tools"].as_array().unwrap();
     assert_eq!(
         tools.len(),
-        18,
-        "read-only catalog must expose 18 tools (incl. get_import_mapping): {tools:?}"
+        36,
+        "read-only catalog must expose 36 tools (incl. get_import_mapping): {tools:?}"
     );
 
     // (h) tools/call succeeds and writes an audit row (awaited before the
@@ -499,11 +501,10 @@ async fn mcp_write_scoped_token_sees_write_tools() {
     let list = parse_sse_data(&response.text().await.unwrap());
     let tools = list["result"]["tools"].as_array().unwrap();
     let names: Vec<&str> = tools.iter().map(|t| t["name"].as_str().unwrap()).collect();
-    assert_eq!(
-        tools.len(),
-        33,
-        "full-scope token must see all 33 tools: {names:?}"
-    );
+    // The 33 activity/classification/quote tools, the 18 platform reads and
+    // the 10 platform writes these scopes grant (activity edits, taxonomy
+    // categories, market data).
+    assert_eq!(tools.len(), 61, "these scopes must see 61 tools: {names:?}");
     for name in [
         "find_transfer_matches",
         "link_transfer_activities",
@@ -1808,4 +1809,187 @@ async fn profile_deletion_closes_initialized_mcp_sessions() {
     )
     .await;
     assert!(!response.status().is_success());
+}
+
+/// Every scope a token can hold.
+const ALL_SCOPES: &[&str] = &[
+    "accounts:read",
+    "holdings:read",
+    "performance:read",
+    "activities:read",
+    "financial-planning:read",
+    "health:read",
+    "classification:read",
+    "spending:read",
+    "activities:draft",
+    "activities:write",
+    "classification:suggest",
+    "classification:write",
+    "market-data:write",
+    "planning:run",
+    "accounts:write",
+    "goals:write",
+    "spending:write",
+    "portfolio:write",
+    "health:write",
+];
+
+/// Calls an MCP tool that is expected to fail and returns its error text.
+async fn mcp_call_tool_error(
+    server: &TestServer,
+    pat: &str,
+    session: &str,
+    name: &str,
+    arguments: serde_json::Value,
+) -> String {
+    let response = mcp_post(
+        server,
+        Some(pat),
+        Some(session),
+        serde_json::json!({
+            "jsonrpc": "2.0", "id": name, "method": "tools/call",
+            "params": { "name": name, "arguments": arguments }
+        }),
+    )
+    .await;
+    assert_eq!(response.status(), 200);
+    let result = parse_sse_data(&response.text().await.unwrap());
+    assert_eq!(result["result"]["isError"], true, "{name}: {result}");
+    result["result"]["content"][0]["text"]
+        .as_str()
+        .unwrap()
+        .to_string()
+}
+
+/// The platform tools reach the server's services: an agent reads settings,
+/// creates and funds a goal, previews and saves changes, and needs explicit
+/// confirmation to delete.
+#[tokio::test]
+async fn mcp_platform_tools_change_goals_and_accounts() {
+    let server = spawn_server(true, false).await;
+    let cookie = login(&server).await;
+    disable_market_data_providers(&server, &cookie).await;
+    let account = create_eur_account(&server, &cookie, "Platform account").await;
+    let (status, token) = create_pat(
+        &server,
+        &cookie,
+        serde_json::json!({ "name": "full access", "scopes": ALL_SCOPES }),
+    )
+    .await;
+    assert_eq!(status, 201);
+    let pat = token["token"].as_str().unwrap().to_string();
+    let session = mcp_initialize(&server, &pat).await;
+
+    let settings = mcp_call_tool(
+        &server,
+        &pat,
+        &session,
+        "get_settings",
+        serde_json::json!({}),
+    )
+    .await;
+    assert!(settings["baseCurrency"].is_string(), "{settings}");
+    let assets = mcp_call_tool(
+        &server,
+        &pat,
+        &session,
+        "get_alternative_assets",
+        serde_json::json!({}),
+    )
+    .await;
+    assert_eq!(assets, serde_json::json!({ "count": 0, "items": [] }));
+
+    let goal = mcp_call_tool(
+        &server,
+        &pat,
+        &session,
+        "create_goal",
+        serde_json::json!({
+            "goalType": "save_up", "title": "Car", "targetAmount": 20000,
+            "targetDate": "2030-01-01"
+        }),
+    )
+    .await;
+    let goal_id = goal["id"].as_str().unwrap().to_string();
+    let funding = mcp_call_tool(
+        &server,
+        &pat,
+        &session,
+        "save_goal_funding",
+        serde_json::json!({
+            "goalId": goal_id, "rules": [{ "accountId": account["id"], "sharePercent": 50 }]
+        }),
+    )
+    .await;
+    assert_eq!(funding["rules"].as_array().unwrap().len(), 1, "{funding}");
+    let overview = mcp_call_tool(
+        &server,
+        &pat,
+        &session,
+        "get_goal_overview",
+        serde_json::json!({ "goalId": goal_id }),
+    )
+    .await;
+    assert_eq!(overview["targetAmount"], 20000.0, "{overview}");
+
+    // A dry run shows the change without saving it.
+    let preview = mcp_call_tool(
+        &server,
+        &pat,
+        &session,
+        "update_goal",
+        serde_json::json!({ "id": goal_id, "changes": { "title": "New car" }, "dryRun": true }),
+    )
+    .await;
+    assert_eq!(preview["goal"]["title"], "New car");
+    let details = mcp_call_tool(
+        &server,
+        &pat,
+        &session,
+        "get_goal_details",
+        serde_json::json!({ "goalId": goal_id }),
+    )
+    .await;
+    assert_eq!(details["goal"]["title"], "Car");
+    assert_eq!(details["fundingRules"].as_array().unwrap().len(), 1);
+    let updated = mcp_call_tool(
+        &server,
+        &pat,
+        &session,
+        "update_goal",
+        serde_json::json!({ "id": goal_id, "changes": { "title": "New car" } }),
+    )
+    .await;
+    assert_eq!(updated["title"], "New car");
+
+    let renamed = mcp_call_tool(
+        &server,
+        &pat,
+        &session,
+        "update_account",
+        serde_json::json!({ "id": account["id"], "changes": { "name": "Renamed" } }),
+    )
+    .await;
+    assert_eq!(renamed["name"], "Renamed");
+    assert_eq!(renamed["currency"], "EUR");
+
+    let error = mcp_call_tool_error(
+        &server,
+        &pat,
+        &session,
+        "delete_goal",
+        serde_json::json!({ "id": goal_id }),
+    )
+    .await;
+    assert!(error.contains("confirm"), "{error}");
+    mcp_call_tool(
+        &server,
+        &pat,
+        &session,
+        "delete_goal",
+        serde_json::json!({ "id": goal_id, "confirm": true }),
+    )
+    .await;
+    let goals = mcp_call_tool(&server, &pat, &session, "get_goals", serde_json::json!({})).await;
+    assert_eq!(goals["count"], 0, "{goals}");
 }

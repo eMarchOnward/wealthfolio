@@ -1,12 +1,26 @@
 import { describe, expect, it } from "vitest";
 import {
   DEFAULT_RETIREMENT_PLAN,
+  ageFromBirthYearMonth,
   createDefaultRetirementPlan,
+  HOME_COSTS_EXPENSE_ID,
   normalizeDashboardRetirementPlan,
+  normalizeRetirementPlan,
   parseSettingsJson,
+  RENT_EXPENSE_ID,
 } from "./plan-adapter";
 
 describe("retirement plan adapter", () => {
+  it("ignores a birth year that is still being typed", () => {
+    const asOf = new Date(2026, 9, 12);
+    expect(ageFromBirthYearMonth("1975-03", asOf)).toBe(51);
+    expect(ageFromBirthYearMonth("1975-11", asOf)).toBe(50);
+    // A month input reports "0001", "0019" and "0197" on the way to "1975".
+    expect(ageFromBirthYearMonth("0019-03", asOf)).toBeUndefined();
+    expect(ageFromBirthYearMonth("0197-03", asOf)).toBeUndefined();
+    expect(ageFromBirthYearMonth("2030-03", asOf)).toBeUndefined();
+  });
+
   it("default plans do not include legacy withdrawal-rule fields", () => {
     const plan = parseSettingsJson("{}");
 
@@ -68,5 +82,32 @@ describe("retirement calendar date", () => {
     expect(createDefaultRetirementPlan("USD", new Date(2025, 11, 31)).personal.birthYearMonth).toBe(
       "1995-12",
     );
+  });
+
+  it("moves rent from the tax plan settings into a must-have item, once", () => {
+    const plan = {
+      ...DEFAULT_RETIREMENT_PLAN,
+      taxOptimizer: { housing: "rent" as const, monthlyRent: 2_000, homeCosts: 9_000 },
+    };
+    const moved = normalizeRetirementPlan(plan);
+    const rent = moved.expenses.items.find((item) => item.id === RENT_EXPENSE_ID);
+    expect(rent).toMatchObject({ monthlyAmount: 2_000, essential: true, endsAtHomePurchase: true });
+    expect(moved.taxOptimizer).toMatchObject({ monthlyRent: 0, homeCosts: 0 });
+    expect(normalizeRetirementPlan(moved).expenses.items).toHaveLength(moved.expenses.items.length);
+  });
+
+  it("moves an owned home's costs into a yearly item that ends only when it is sold", () => {
+    for (const sell of [false, true]) {
+      const plan = {
+        ...DEFAULT_RETIREMENT_PLAN,
+        taxOptimizer: { housing: "own" as const, homeCosts: 9_000, sellCurrentHome: sell },
+      };
+      const costs = normalizeRetirementPlan(plan).expenses.items.find(
+        (item) => item.id === HOME_COSTS_EXPENSE_ID,
+      );
+      expect(costs?.monthlyAmount).toBeCloseTo(750);
+      expect(costs?.yearly).toBe(true);
+      expect(costs?.endsAtHomePurchase ?? false).toBe(sell);
+    }
   });
 });

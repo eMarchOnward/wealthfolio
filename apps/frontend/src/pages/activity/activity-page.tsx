@@ -37,6 +37,7 @@ import { BulkHoldingsModal } from "./components/forms/bulk-holdings-modal";
 import { MobileActivityForm } from "./components/mobile-forms/mobile-activity-form";
 import { TransferMatchDialog } from "./components/transfer-match-dialog";
 import { useActivityActionDialogs } from "./hooks/use-activity-action-dialogs";
+import { useActivityMutations } from "./hooks/use-activity-mutations";
 import { useActivitySearch, type ActivityStatusFilter } from "./hooks/use-activity-search";
 import {
   clearActivityUrlFilters,
@@ -108,6 +109,8 @@ const ActivityPage = () => {
     duplicateActivity: handleDuplicate,
   } = useActivityActionDialogs();
   const navigate = useNavigate();
+  const { linkExactTransferMatchesMutation } = useActivityMutations();
+  const linkMatchingTransfers = linkExactTransferMatchesMutation.mutate;
   const [searchParams, setSearchParams] = useSearchParams();
   const activityUrlFilterKey = searchParams.toString();
   const activityUrlFilters = useMemo(
@@ -576,6 +579,12 @@ const ActivityPage = () => {
             onClick: () => navigate("/import"),
           },
           {
+            icon: Icons.Link,
+            label: t("activity:page.link_matching_transfers"),
+            testId: "link-matching-transfers-action",
+            onClick: () => linkMatchingTransfers(),
+          },
+          {
             icon: Icons.Holdings,
             label: t("activity:page.transfer_holdings"),
             testId: "transfer-holdings-action",
@@ -590,7 +599,7 @@ const ActivityPage = () => {
         ],
       },
     ],
-    [handleEdit, navigate, t],
+    [handleEdit, linkMatchingTransfers, navigate, t],
   );
 
   const investmentActions = (
@@ -641,10 +650,16 @@ const ActivityPage = () => {
             testId: "import-activities-action",
             onClick: () => navigate("/import"),
           },
+          {
+            icon: Icons.Link,
+            label: t("activity:page.link_matching_transfers"),
+            testId: "link-matching-transfers-action",
+            onClick: () => linkMatchingTransfers(),
+          },
         ],
       },
     ],
-    [navigate, t],
+    [linkMatchingTransfers, navigate, t],
   );
 
   const spendingActions = (

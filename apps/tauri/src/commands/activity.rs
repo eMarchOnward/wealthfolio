@@ -175,6 +175,20 @@ pub async fn link_transfer_activities(
 }
 
 #[tauri::command]
+pub async fn link_exact_transfer_matches(state: ProfileAccess) -> Result<usize, String> {
+    let context = state.context()?;
+    debug!("Linking exact transfer matches...");
+    // Domain events handle recalculation automatically
+    let linked = context
+        .activity_service()
+        .link_exact_transfer_matches()
+        .await
+        .map_err(|e| e.to_string())?;
+    context.health_service().clear_cache().await;
+    Ok(linked)
+}
+
+#[tauri::command]
 pub async fn unlink_transfer_activities(
     activity_a_id: String,
     activity_b_id: String,

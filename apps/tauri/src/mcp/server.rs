@@ -13,7 +13,7 @@ use chrono::Utc;
 use rmcp::transport::streamable_http_server::StreamableHttpServerConfig;
 use tokio_util::sync::CancellationToken;
 use wealthfolio_agent_tools::AgentEnvironment;
-use wealthfolio_mcp::{AuditSink, McpServerBuilder};
+use wealthfolio_mcp::{AuditSink, McpServerBuilder, SERVER_INSTRUCTIONS};
 use wealthfolio_storage_sqlite::agent::PatRepository;
 
 use super::middleware::{require_pat, validate_origin};
@@ -21,11 +21,6 @@ use super::RunningServer;
 
 /// Fixed default port; falls back to a random port when already in use.
 pub const DEFAULT_PORT: u16 = 8639;
-
-const INSTRUCTIONS: &str = "Read and write access to the user's Wealthfolio portfolio: accounts, \
-holdings, valuations, performance, activities, income, goals, health, and classifications. \
-Write capabilities (drafting and committing activities, classification suggestions and commits) depend on the \
-scopes granted to the access token in use.";
 
 async fn health() -> Json<serde_json::Value> {
     Json(serde_json::json!({
@@ -45,7 +40,7 @@ pub fn build_router(
     pat_repository: Arc<PatRepository>,
     cancel: CancellationToken,
 ) -> Router {
-    let mut builder = McpServerBuilder::new(env).instructions(INSTRUCTIONS);
+    let mut builder = McpServerBuilder::new(env).instructions(SERVER_INSTRUCTIONS);
     if let Some(sink) = audit_sink {
         builder = builder.audit(sink);
     }

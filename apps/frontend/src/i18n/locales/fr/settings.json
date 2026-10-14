@@ -1464,8 +1464,6 @@
     "dialog_client_config_desc": "Configuration prête à coller (contient ce jeton). Fonctionne avec Claude, Cursor, Windsurf et Cline ; VS Code et d'autres clients diffèrent — consultez l'aide dans la fiche du serveur MCP.",
     "dialog_copy_config_aria": "Copier la configuration du client",
     "dialog_done": "Terminé",
-    "scope_locked_title": "Requis par Activités — valider/écrire",
-    "scope_locked_market_data_title": "Requis par Données de marché — écrire",
     "dialog_scope_aria": "{{label}} : {{description}}",
     "token_label": "Jeton",
     "scope": {

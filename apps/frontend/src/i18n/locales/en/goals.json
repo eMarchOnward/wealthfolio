@@ -264,6 +264,7 @@
       "horizon_hint": "Age the plan should cover through.",
       "monthly_contribution": "Monthly contribution",
       "monthly_contribution_hint": "How much you add each month until retirement.",
+      "contribution_growth_hint": "How much the monthly contribution rises each year, e.g. with raises.",
       "return_before_hint": "Assumed annual return while saving, before investment fees.",
       "return_during_hint": "Assumed annual return after withdrawals begin, before investment fees.",
       "annual_fee_hint": "Estimated yearly portfolio fees.",
@@ -334,6 +335,14 @@
       "income_type_help": "Use income for pensions paid monthly. Use fund for balances that convert to an estimated payout (e.g. RRSP/RRIF in Canada, 401(k)/IRA in the US).",
       "fund": "Fund",
       "monthly_income_after_tax": "Monthly income after tax",
+      "monthly_income_before_tax": "Monthly income before tax",
+      "monthly_benefit_before_tax": "Monthly benefit before tax, at the start age",
+      "amounts_after_tax": "Amounts are after tax: FIRE and Traditional count them as spendable and do not tax them.",
+      "amounts_before_tax": "Amounts are before tax (gross): the tax-optimized planner works out the tax on them.",
+      "social_security": "Social Security",
+      "add_social_security": "Add Social Security",
+      "is_social_security": "Social Security",
+      "is_social_security_help": "Tax-optimized taxes it as Social Security (at most 85% taxable) and can optimize the claim age. Enter the estimate for the start age from ssa.gov/myaccount, in today's money.",
       "current_fund_balance": "Current fund balance",
       "monthly_fund_contribution": "Monthly fund contribution",
       "fund_return_before_payout": "Fund return before payout",
@@ -345,6 +354,7 @@
       "fund_return_during_payout": "Fund return during payout",
       "drawdown_note": "Drawdown estimates payments at {{pct}}%/yr of the fund balance. For payments already started, an entered monthly payout takes precedence. Payments then follow the growth setting until the fund is depleted.",
       "monthly_payout_after_tax": "Monthly payout after tax",
+      "monthly_payout_before_tax": "Monthly payout before tax",
       "payout_estimate_note": "Estimated payout uses {{pct}}%/yr of the fund balance. For payments already started, an entered monthly payout takes precedence.",
       "start_age": "Start age",
       "income_growth": "Income growth",
@@ -574,6 +584,148 @@
       "inps_desc": "Use Add retirement income. Enter your estimated monthly net pension in today's money and set the payout start age. Use Indexed if you want the income to rise with the plan inflation assumption.",
       "tfr_title": "TFR (Trattamento di Fine Rapporto — severance accrual)",
       "tfr_desc": "If TFR is included in a pension fund, include it in the fund contribution. A separate fund can represent separate TFR savings; its modeled payout follows the configured payout rate or monthly payout."
+    },
+    "style_classic": "FIRE & Traditional",
+    "style_optimized": "Tax-optimized",
+    "subtitle_optimized": "How the tax-optimized planner works, what each setting does, and how to read its results.",
+    "tax": {
+      "quick_start": {
+        "title": "Quick start",
+        "plan_title": "1. Set the plan up on the Plan tab",
+        "plan_desc": "Your ages, spending and income come from the goal's own cards (Plan inputs, Retirement Spending, Retirement Income, Account Shares). The Optimizer settings below them add what only this planner uses: your salary and contributions, the Social Security claim age, taxes, health care, debts and markets. Every field has a ? that explains it.",
+        "run_title": "2. Optimize",
+        "run_desc": "Optimize solves the whole plan at once, usually within a minute or two. The result is saved with the plan, so it is still there next time; it is marked out of date when you change a setting, and warns you when your account balances have moved.",
+        "overview_title": "3. Read Overview",
+        "overview_desc": "The summary, the value of optimizing against a rule of thumb, your contributions while working, charts, and a yearly playbook: what to withdraw, convert and pay in each year.",
+        "risk_title": "4. Test it on Risk",
+        "risk_desc": "The plan on Overview assumes one set of market returns. Risk re-solves it on many market paths, and under shocks, to show how much of it you can count on.",
+        "cases_title": "5. Try variations with cases and Compare",
+        "cases_desc": "Save the current settings and result as a named case, change something, optimize again, and compare the cases side by side on Compare."
+      },
+      "milp": {
+        "title": "How the optimizer works",
+        "idea_title": "One decision for every year, all at once",
+        "idea_desc": "Most retirement calculators follow a fixed rule, such as spending taxable money first, then tax-deferred, then Roth. This planner instead treats every year's choices as unknowns and picks all of them together: how much to take from each account, how much to convert to Roth, how much to pay into each account while working, whether to pay down debt, and (if you allow it) when to claim Social Security.\n\nBecause it sees the whole plan at once, it can accept more tax in one year to save more in later ones, which a year-by-year rule cannot do.",
+        "lp_title": "What a linear program is",
+        "lp_desc": "The plan is written as a linear program: a goal to maximize (your spending, or what you leave) and a long list of rules every answer must obey. Each rule is a simple sum. A year's balance is last year's balance, plus growth, plus deposits, minus withdrawals. Spending plus taxes plus premiums equals the cash that came in. A Roth withdrawal cannot exceed the Roth balance. Income fills the 10% bracket before the 12% one, and so on.\n\nA solver (HiGHS, an open-source solver used in industry) searches this space and proves the best answer, rather than trying a few strategies and keeping the best of those. A plan of 40 years has a few thousand unknowns and rules.",
+        "mixed_integer_title": "Why 'mixed-integer' (MILP)",
+        "mixed_integer_desc": "Some rules are yes-or-no, which plain sums cannot express: has Social Security started yet? Which Medicare surcharge (IRMAA) tier is income in? Is income over the ACA premium-credit cliff? Is long-term gains income in the 0%, 15% or 20% band?\n\nThese use variables that can only be 0 or 1. With them the problem is a mixed-integer linear program (MILP). It is harder to solve, because the solver has to explore combinations of those yes-or-no choices, which is why some plans take longer, and why a plan that hits the time limit is marked 'close to optimal' rather than proven best.",
+        "loop_title": "The parts that are not linear",
+        "loop_desc": "A few tax rules are curves rather than straight lines: how much of Social Security is taxable, the phase-out of the senior deduction, and the share of a taxable-account sale that is gain rather than your own cost basis.\n\nThe planner solves these by repetition, as Owl does: it guesses them, solves, recomputes them from the answer, and solves again until they stop changing. When the claim age is fixed, a final 'polish' solve then computes Social Security taxability and the gains bands exactly.",
+        "foresight_title": "Perfect foresight",
+        "foresight_desc": "The optimized plan knows every future year's returns and inflation, because it is solved on one fixed set of them (your Markets setting). Real life does not, which is why the Risk tab re-solves the plan on many market paths, and why you should re-optimize every year or so with fresh balances: this year's actions are what matter; later years will be re-planned.",
+        "today_title": "Today's money",
+        "today_desc": "Everything shown is in today's money: future amounts are divided by the inflation between now and then, so $50,000 in 2045 buys what $50,000 buys today. Tax brackets, limits and Social Security rise with inflation in the model, as they do in law.",
+        "owl_title": "Where it comes from",
+        "owl_desc": "The model is a Rust port of Owl, an open-source retirement optimizer (github.com/mdlacasse/Owl), extended here with things such as a home purchase, Virginia state tax and gains harvesting."
+      },
+      "goals": {
+        "title": "What the plan optimizes",
+        "goal_title": "Goal: 'Retire at…' or 'When can I retire?'",
+        "goal_desc": "'Retire at…' keeps your retirement age fixed and finds the best plan for it.\n\n'When can I retire?' solves the plan once for every retirement age from today to 70 and shows, for each, the most you could spend once retired. The earliest age is the first one where your must-have spending is covered every year for life, plus the amount you want to leave. It takes longer because each age is a full optimization.",
+        "objective_title": "Optimize for: 'Spend as much as possible'",
+        "objective_desc": "Finds the highest spending the money allows, while still leaving at least the 'Leave at least' amount.\n\nSpending keeps the shape of your planned expenses: if your Spending card has $60,000 a year now and $70,000 once a home's costs start, the planner scales both together, say to $66,000 and $77,000. The shape covers every year of the plan, including the working years, so the answer is a spending level you could start now. If you spend less than that while working, the difference is extra saving.",
+        "objective_bequest_title": "Optimize for: 'Fund my expenses, leave the most'",
+        "objective_bequest_desc": "Spends exactly your planned expenses each year and arranges withdrawals, conversions and taxes so that the largest possible after-tax estate is left at the end. Use it when your spending is settled and the question is how to pay for it most cheaply.",
+        "floor_title": "Must-have spending: the floor",
+        "floor_desc": "Spending items marked Must-have in the Spending card form a floor that every year must cover, whatever the goal. Taxes, health insurance and debt payments come on top of spending; they are not part of it. If the floor cannot be met, the plan has no solution and says so.",
+        "bequest_title": "Leave at least, and heirs' tax rate",
+        "bequest_desc": "'Leave at least' is the least the plan must leave at the end, after the tax your heirs will pay. Traditional IRAs and 401(k)s are worth less to heirs than Roth or taxable money, because heirs pay income tax on them (within ten years). The heirs' tax rate sets how much less. A high rate makes the optimizer convert more to Roth; a low one lets it leave more in pre-tax accounts."
+      },
+      "working": {
+        "title": "Working years and contributions",
+        "salary_title": "Salary and salary growth",
+        "salary_desc": "Gross pay, before 401(k), HSA or other deductions, is earned every year until your retirement age. Salary growth includes inflation: growth equal to inflation is flat in today's money.",
+        "fixed_title": "Fixed contributions (optimize off)",
+        "fixed_desc": "With 'Optimize my contributions' off, you enter what you put into each account per year: pre-tax 401(k), employer contributions, Roth, HSA, and taxable investing. They grow each year at the Contribution growth rate set just below them.\n\nGrowth cannot take them past the IRS limits: each year's pre-tax 401(k), Roth and HSA amounts are held to that year's limits, including catch-ups, and the Contributions table on Overview notes from which age. What is held back stays in your pay.",
+        "optimize_title": "'Optimize my contributions while working'",
+        "optimize_desc": "Turns contributions into decisions too. Each working year the optimizer chooses how much goes into a pre-tax 401(k), a Roth 401(k), a Roth IRA and an HSA, within the IRS limits, and earns the employer match you describe. The fixed amounts are then ignored, and your salary is treated as gross pay.\n\nThe trade-off it weighs: pre-tax saving cuts tax now at your current bracket but is taxed when withdrawn; Roth saving is taxed now and free later. If your bracket today is higher than you will face in retirement (after counting conversions, RMDs and Social Security), pre-tax wins; if lower, Roth wins. It usually captures the full match, since a match is an immediate return, and usually fills an HSA if you have one, because HSA money is never taxed when it pays medical costs.",
+        "match_title": "Match rate and cap",
+        "match_desc": "In '50% of the first 6% of pay', the rate is 50 and the cap is 6. The match lands in the pre-tax account whether you defer pre-tax or Roth.",
+        "leftover_title": "Leftover pay",
+        "leftover_desc": "Pay left after spending, taxes, debt payments and contributions goes into the taxable account. 'Invest only part of leftover pay' (with optimized contributions) invests only the share you choose and spends the rest, closer to how most people actually save. The playbook shows the invested part as Saved and the rest as Leftover spent.",
+        "hsa_title": "HSA",
+        "hsa_desc": "Turn on the high-deductible plan switch to allow HSA contributions, and set Family coverage if it covers your family: the limit depends on it. 'Medical costs the HSA can pay' does not add spending; it caps how much HSA money can come out tax-free each year (together with Medicare premiums)."
+      },
+      "social_security": {
+        "title": "Social Security",
+        "benefit_title": "Benefit and claim age",
+        "benefit_desc": "Social Security comes from the Retirement Income card: use 'Add Social Security' there, or switch on Social Security for an existing income, and enter the monthly benefit before tax for its start age (your estimates are at ssa.gov/myaccount). Every planning style then counts it; FIRE and Traditional treat it as after-tax income, while this planner taxes it. At most 85% of Social Security is taxable, and less at lower incomes; the planner works out how much each year.",
+        "optimize_age_title": "'Let the optimizer choose the claim age'",
+        "optimize_age_desc": "Tries every claiming month from 62 to 70 as part of the same solve. Waiting raises the check by about 8% a year after full retirement age, and the years before claiming have low income, which leaves room for cheap Roth conversions. Claiming early means drawing less from savings now.\n\nIt assumes you live to the end of the plan. Turn on random lifespans on the Risk tab to see how a shorter or longer life changes the picture."
+      },
+      "taxes": {
+        "title": "Taxes and health care",
+        "brackets_title": "What is taxed, and how",
+        "brackets_desc": "Federal income tax uses the current brackets and standard deduction, plus the extra $6,000 deduction from 65 through 2028 (phased out at higher incomes). Long-term gains and qualified dividends stack on top of ordinary income in the 0%, 15% and 20% bands. Withdrawals from tax-deferred accounts and Roth conversions are ordinary income; Roth withdrawals are tax-free; selling in the taxable account is taxed only on the gain over your cost basis. Dividends in the taxable account are taxed every year.",
+        "conversions_title": "Roth conversions",
+        "conversions_desc": "Moving money from a traditional IRA or 401(k) to Roth costs income tax now and saves it later. The optimizer converts in years when your bracket is low, most often between retiring and starting Social Security or RMDs, and stops where the next bracket, a Medicare surcharge or the ACA cliff would cost more than it saves.\n\nConverted money must sit five years before it can be withdrawn tax- and penalty-free before 59½ (the five-year rule), which the plan respects. 'Roth conversion cap' limits the yearly amount; 0 turns conversions off.",
+        "rmd_title": "Required minimum distributions",
+        "rmd_desc": "From 73 (born 1951–1959) or 75 (born 1960 or later) the law requires a minimum yearly withdrawal from tax-deferred accounts. Large RMDs on top of Social Security can push you into higher brackets for life, which is the main reason conversions before then pay off.",
+        "harvest_title": "Gains harvesting",
+        "harvest_desc": "In low-income years, long-term gains can be taxed at 0%. With harvesting on, the optimizer sells investments with gains in those years and buys them straight back, raising your cost basis so that the gains are never taxed. It only matters with a taxable account that has gains.",
+        "irmaa_title": "Medicare and IRMAA",
+        "irmaa_desc": "From 65 the plan pays the Medicare Part B premium. Above certain incomes, IRMAA surcharges raise Part B and Part D costs in tiers, based on your income two years earlier. The plan counts each tier, so the optimizer will often hold income just below a threshold when crossing it costs more than it gains. 'Recent MAGI' sets the income of the two years before the plan starts.",
+        "aca_title": "ACA premium credit",
+        "aca_desc": "Retiring before 65 means buying health insurance until Medicare. Enter the benchmark (second-lowest silver) premium, and the plan pays it less the premium tax credit, which depends on your income. Above 400% of the poverty level the credit disappears entirely (the cliff), so the optimizer keeps income below it in those years when that is worth it, for example by drawing from Roth or taxable money instead of converting. Leave health insurance out of your Spending items when this is set.",
+        "state_title": "State tax",
+        "state_desc": "Only Virginia is modeled: its brackets, deduction, the age deduction from 65, and no tax on Social Security. Choose None for a state without income tax."
+      },
+      "early_access": {
+        "title": "Early access to retirement accounts",
+        "penalty_title": "The 10% penalty",
+        "penalty_desc": "Tax-deferred withdrawals before 59½ cost a 10% penalty on top of tax, so a plan that retires early normally lives on taxable and Roth money first. The optimizer pays it only when that is cheaper than the alternatives; it shows as part of Federal tax in the playbook.",
+        "rule_of_55_title": "Rule of 55",
+        "rule_of_55_desc": "Leaving your job in or after the year you turn 55 lets you take that employer's 401(k) without the penalty. Enter that 401(k)'s balance and the plan can use it before 59½. It does not apply to IRAs, or to a 401(k) rolled into one.",
+        "sepp_title": "72(t) payments",
+        "sepp_desc": "Substantially equal periodic payments let you take a fixed yearly amount from an IRA before 59½ without the penalty, but once started they must continue unchanged for five years or until 59½, whichever is later. The plan takes them as given."
+      },
+      "estate_markets": {
+        "title": "Debts, home and markets",
+        "debts_title": "Debts",
+        "debts_desc": "Each loan is paid on its schedule, and the optimizer may pay extra principal when that beats investing after tax, typically for loans with a high rate. Leave loan payments out of your Spending items so they are not counted twice. Any loan left at the end comes off the estate.",
+        "home_title": "A home purchase",
+        "home_desc": "A linked home goal adds the purchase to the plan: the down payment and closing costs come out of whichever accounts cost least in tax, the mortgage becomes a debt, and the home's owning costs become must-have spending from then on. You can also sell your current home in the same year; its proceeds go into your accounts.",
+        "markets_title": "Markets",
+        "markets_desc": "'My projection assumptions' uses the returns on the Projection Assumptions card. 'Fixed returns by asset class' gives stocks, bonds and T-notes their own returns, and each account earns the blend of its asset mix (from your holdings, or set by hand, optionally gliding to a target mix). 'Replay market history' runs the actual years from a starting year, to test a bad sequence; 'Historical average' uses the average of a range of years."
+      },
+      "overview": {
+        "title": "Reading Overview",
+        "summary_title": "Summary",
+        "summary_desc": "The spending the plan sustains (or the estate it leaves), lifetime taxes, total Roth conversions and the Social Security claim age.",
+        "value_title": "Value of optimizing",
+        "value_desc": "The same plan solved with the usual rule of thumb: taxable first, then tax-deferred, then Roth, no conversions, Social Security at your planned age. The difference is what optimizing is worth.\n\nThe optimized plan can pay more lifetime tax than the rule of thumb and still be better: when it maximizes spending it spends more, which means withdrawing and paying tax on more, and it may pay tax earlier (on conversions) to pay less later. The card then says how much more tax, rather than tax saved. Judge the plan by spending or estate, not by tax alone.",
+        "contributions_title": "Contributions while working",
+        "contributions_desc": "What goes into each account each working year: pre-tax 401(k), Roth 401(k), Roth IRA, HSA, the employer's contribution and taxable investing. With optimized contributions these are the optimizer's choices, and this table is your savings plan. Accounts that get nothing are left out.",
+        "playbook_title": "The yearly playbook",
+        "playbook_desc": "One row per year. Taxable, Tax-deferred, Roth and HSA are withdrawals from those accounts; Roth conversion is the amount to convert; Saved is pay or proceeds deposited in the taxable account; Spending is what you live on. Federal tax includes capital gains tax and any early-withdrawal penalty.\n\nA withdrawal while still working is not a mistake: the plan's spending applies from today, so when it is higher than your pay covers after tax and contributions, savings fill the gap. The first row is the one to act on this year."
+      },
+      "risk": {
+        "title": "The Risk tab",
+        "success_title": "Chance of success",
+        "success_desc": "Re-solves the plan, at your planned spending, on many market paths and counts how many fund it. Historical uses every actual sequence of years since 1928. Resampled (bootstrap) Monte Carlo builds paths from whole past years drawn at random, so they look like history but in new orders. Lognormal Monte Carlo draws each year from a distribution fitted to history, so it can produce years worse, or better, than any on record.",
+        "runs_title": "Monte Carlo settings",
+        "runs_desc": "Each Monte Carlo path is a full re-solve, so the number of runs sets how long a check takes: 100 runs take a few minutes, 1,000 about ten times as long. More runs give steadier percentages. The Roth conversion check has its own count, because it solves each path several times.",
+        "lifespans_title": "Random lifespans",
+        "lifespans_desc": "Instead of ending every run at your planning horizon, each Monte Carlo run draws an age at death from an actuarial table (you choose sex and table), given that you live to retire, and plans to that age. Success then weighs bad markets and a long life together. Historical replays and the conversion check keep the horizon.",
+        "safe_spending_title": "Safe spending",
+        "safe_spending_desc": "The most you could spend, in the shape of your planned expenses, and still succeed on the share of paths you choose, for example 90%. It answers 'how much can I count on?' rather than 'will my plan work?'.",
+        "choices_title": "What each choice costs",
+        "choices_desc": "Re-solves with one choice changed at a time (retire a year earlier or later, spend or leave a little more, lift the conversion cap, let the plan pick your Social Security age, skip the planned home) and shows how much each moves the result. It shows where a small change buys the most.",
+        "regret_title": "Roth conversion check",
+        "regret_desc": "This year's conversion is the one decision you make now; later years can adapt. The check fixes this year's conversion at several amounts around the recommended one, re-plans everything else on many market paths, and measures how much each amount gives up against the best amount on the same path. A low average and worst case mean the amount is safe whatever markets do.",
+        "stress_title": "Stress tests",
+        "stress_desc": "Re-solves the plan under shocks you don't control: returns 2 points lower, inflation 1.5 points higher, must-have expenses 10% higher, Social Security cut to 77%, living 5 years longer, and retiring into the markets of 1929, 1966 or 2000. Each time the optimizer re-plans around the shock, as you would."
+      },
+      "limits": {
+        "title": "What the model doesn't cover",
+        "single_title": "One person, filing single",
+        "single_desc": "The plan models one person filing as single: no spouse, joint brackets or survivor benefits.",
+        "taxes_title": "Some taxes and rules",
+        "taxes_desc": "The 3.8% net investment income tax, Roth IRA income limits, the alternative minimum tax and state taxes other than Virginia are not modeled. Tax law is taken as it stands today.",
+        "markets_title": "One market path at a time",
+        "markets_desc": "The optimized plan assumes the returns you chose, every year, with perfect foresight. Use the Risk tab for uncertainty, and re-optimize each year."
+      }
     }
   },
   "type": {
@@ -602,7 +754,9 @@
     "no_plan_yet": "This goal doesn't have a detailed plan yet.",
     "tab_plan": "Plan",
     "tab_risk": "Risk",
-    "tab_compare": "Compare"
+    "tab_compare": "Compare",
+    "planner_style": "Planner style",
+    "planner_style_hint": "Switch between FIRE, Traditional and Tax-optimized. All three use the same plan, so your inputs, saved results and cases are kept."
   },
   "funding": {
     "account_shares": "Account Shares",
@@ -970,7 +1124,7 @@
   },
   "tax_plan": {
     "title": "Tax-optimized retirement plan",
-    "description": "Solves which accounts to draw from, when to convert to Roth and when to claim Social Security to minimize US federal taxes over your lifetime. Uses the settings on this tab and the goal's accounts. The result appears on Overview and Risk.",
+    "description": "Solves which accounts to draw from, when to convert to Roth and when to claim Social Security, so that you can spend the most or leave the most after tax over your lifetime. Uses the settings on this tab and the goal's accounts. The result appears on Overview and Risk.",
     "run": "Optimize",
     "rerun": "Optimize again",
     "running": "Optimizing… this can take a minute",
@@ -1025,7 +1179,6 @@
       "objective_max_bequest": "Fund my expenses, leave the most",
       "objective_max_spending": "Spend as much as possible",
       "bequest_floor": "Leave at least (after tax)",
-      "social_security_stream": "Social Security income stream",
       "optimize_claim_age": "Let the optimizer choose the claim age",
       "pre_tax_contribution": "Pre-tax 401(k) per year",
       "employer_contribution": "Employer contribution per year",
@@ -1057,12 +1210,16 @@
       "debt_balance": "Balance",
       "debt_rate": "Rate (%)",
       "debt_payment": "Payment per year",
-      "enter_social_security": "Enter amounts below",
-      "social_security_monthly": "Social Security per month",
-      "social_security_claim_age": "Social Security claim age",
-      "optimize_claim_age_needs_benefit": "Enter a Social Security benefit first.",
+      "social_security_summary": "From the Retirement Income card: {{label}}, {{amount}}/mo before tax from age {{age}}. The planner works out how much of it is taxable (at most 85%).",
+      "social_security_summary_optimized": "From the Retirement Income card: {{label}}, {{amount}}/mo before tax at age {{age}}. While the claim age is optimized, the card's start age is not used as your claim age: that benefit is converted to your full-retirement-age amount, and the optimizer picks a claiming month between 62 and 70. FIRE and Traditional still start it at {{age}}.",
+      "social_security_entered": "Entered here earlier: {{amount}}/mo before tax from age {{age}}. Only this style uses it; FIRE and Traditional do not count it.",
+      "social_security_move_note": "Move it to the Retirement Income card so every style counts it. This adds a Social Security stream there, already linked.",
+      "social_security_move": "Move to Retirement Income",
+      "social_security_none": "No Social Security yet. Use 'Add Social Security' on the Retirement Income card.",
+      "optimize_claim_age_needs_benefit": "Add Social Security on the Retirement Income card first.",
       "salary": "Salary per year (gross)",
       "salary_growth": "Salary growth per year (%)",
+      "contribution_growth": "Contribution growth per year (%)",
       "goal": "Goal",
       "goal_fixed_age": "Retire at {{age}}",
       "goal_earliest_age": "When can I retire?",
@@ -1202,20 +1359,8 @@
         "body": "The least you want to leave behind at the end of the plan, after your heirs pay income tax on inherited IRAs and 401(k)s. Use 0 if you only care about your own spending.\n\nA higher amount lowers how much you can spend (or makes you retire later).",
         "value": "A total in dollars, in today's money, e.g. 100000."
       },
-      "social_security_stream": {
-        "body": "If your plan already has a Social Security income stream, pick it here: its start age becomes the claim age and its monthly amount the benefit at that age. It is then taxed as Social Security (at most 85% taxable) rather than as a pension.\n\nIf you have no such stream, choose ‘Enter amounts below’ and type the benefit directly.",
-        "value": "A choice from the list."
-      },
-      "social_security_monthly": {
-        "body": "Your estimated monthly benefit if you claim at the claim age next to it, in today's money. Your personal estimate is at ssa.gov/myaccount (‘Plan for retirement’), which shows amounts for every claim age from 62 to 70.\n\nIf you let the optimizer choose the claim age, this amount is converted to your full-retirement-age benefit and adjusted for whichever age it picks.",
-        "value": "Dollars per month, e.g. 2400."
-      },
-      "social_security_claim_age": {
-        "body": "The age you start Social Security. Claiming at 62 gives a permanently smaller check; every year you wait past full retirement age (67 for most people today) adds 8% until 70.\n\nUse the age that matches the monthly amount you entered.",
-        "value": "An age from 62 to 70."
-      },
       "optimize_claim_age": {
-        "body": "Lets the optimizer pick the claiming month between 62 and 70 instead of using the age you entered. It weighs a bigger lifelong check against drawing more from savings in the meantime, including the tax effects (waiting often leaves room for cheap Roth conversions).\n\nIt assumes you live to the end of the plan; if you expect a shorter life, an earlier claim may be wiser.",
+        "body": "Lets the optimizer pick the claiming month between 62 and 70 instead of the start age on the Retirement Income card. The card's monthly amount is converted to your full-retirement-age benefit and adjusted for whichever month it picks. It weighs a bigger lifelong check against drawing more from savings in the meantime, including the tax effects (waiting often leaves room for cheap Roth conversions).\n\nIt assumes you live to the end of the plan; if you expect a shorter life, an earlier claim may be wiser.",
         "value": "On or off."
       },
       "salary": {
@@ -1265,6 +1410,10 @@
       "taxable_contribution": {
         "body": "What you invest each year in a regular (taxable) brokerage account while working, beyond retirement accounts. Any pay left over after expenses and taxes is also invested there, unless you choose to invest only part of it (with Optimize my contributions on).",
         "value": "Dollars per year, e.g. 10000."
+      },
+      "contribution_growth": {
+        "body": "How fast the fixed yearly amounts above rise each year, including inflation. Equal to inflation keeps them level in today's money; above inflation means you save more over time, e.g. as raises come in.\n\n401(k), Roth and HSA amounts stop at each year's IRS limit, and the Contributions table on Overview shows the age each one is capped. With Optimize my contributions on, the optimizer picks the retirement-account amounts itself, so this only grows taxable investing.",
+        "value": "A percentage per year, e.g. 3."
       },
       "state": {
         "body": "Adds state income tax to the plan. Only Virginia is modeled for now: its brackets, standard deduction, and the $12,000 age deduction from 65. Social Security is not taxed by Virginia.\n\nChoose None if your state has no income tax.",

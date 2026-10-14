@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@wealthfolio/ui";
 import { useTranslation } from "react-i18next";
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+export function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <Card>
       <CardHeader>
@@ -26,11 +26,11 @@ function Step({ n, title, children }: { n: number; title: string; children: Reac
   );
 }
 
-function Term({ t, children }: { t: string; children: React.ReactNode }) {
+export function Term({ t, children }: { t: string; children: React.ReactNode }) {
   return (
     <div>
       <p className="font-medium">{t}</p>
-      <p className="text-muted-foreground text-xs">{children}</p>
+      <p className="text-muted-foreground whitespace-pre-line text-xs">{children}</p>
     </div>
   );
 }

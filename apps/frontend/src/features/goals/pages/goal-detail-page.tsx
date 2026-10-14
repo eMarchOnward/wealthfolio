@@ -14,6 +14,11 @@ import {
   Page,
   PageContent,
   PageHeader,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
   Skeleton,
   Tabs,
   TabsContent,
@@ -280,6 +285,27 @@ export default function GoalDetailPage() {
         <Icons.HelpCircle className="size-4" />
       </Button>
     ) : null;
+  // All styles share one plan, so switching keeps every input and the saved
+  // tax-optimized results and cases.
+  const plannerStyleAction = hasRetirementTabs ? (
+    <Select
+      value={plan?.plannerMode ?? "traditional"}
+      onValueChange={(mode) => handleSaveRetirementPlan(retirementPlan, mode as PlannerMode)}
+    >
+      <SelectTrigger
+        className="h-9 w-[150px] rounded-full"
+        aria-label={t("goals:detail.planner_style")}
+        title={t("goals:detail.planner_style_hint")}
+      >
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="fire">FIRE</SelectItem>
+        <SelectItem value="traditional">{t("goals:sidebar.plan.traditional")}</SelectItem>
+        <SelectItem value="optimized">{t("goals:sidebar.plan.tax_optimized")}</SelectItem>
+      </SelectContent>
+    </Select>
+  ) : null;
   const mobileRetirementTabs = hasRetirementTabs ? (
     <div className="mb-4 flex overflow-x-auto pb-1 md:hidden">
       <AnimatedToggleGroup
@@ -296,6 +322,7 @@ export default function GoalDetailPage() {
   const headerActions = (
     <div className="flex items-center gap-2">
       {retirementGuideAction}
+      {plannerStyleAction}
       {retirementTabs}
       {goal.statusLifecycle === "achieved" && (
         <Badge variant="default">{t("goals:detail.achieved")}</Badge>

@@ -806,9 +806,36 @@ export function TaxOptimizerSettingsCard({
   const goal: TaxPlanGoal = settings.goal ?? "fixedAge";
   const earliest = goal === "earliestAge";
   const linkedStream = plan.incomeStreams.find((s) => s.id === settings.socialSecurityStreamId);
+  // Amounts typed here before Social Security moved to the Retirement Income
+  // card; the planner still uses them until they are moved.
+  const enteredSocialSecurity = !linkedStream && (settings.socialSecurityMonthly ?? 0) > 0;
   const hasSocialSecurity = linkedStream
     ? (linkedStream.monthlyAmount ?? 0) > 0
-    : (settings.socialSecurityMonthly ?? 0) > 0;
+    : enteredSocialSecurity;
+  const claimOptimized = (settings.optimizeClaimAge ?? false) && hasSocialSecurity;
+  const moveSocialSecurity = () => {
+    const id = crypto.randomUUID?.() ?? `stream-${Date.now()}`;
+    onSavePlan({
+      ...plan,
+      incomeStreams: [
+        ...plan.incomeStreams,
+        {
+          id,
+          label: t("goals:sidebar.income.social_security"),
+          streamType: "db",
+          startAge: Math.round(settings.socialSecurityClaimAge ?? 67),
+          adjustForInflation: true,
+          monthlyAmount: settings.socialSecurityMonthly,
+        },
+      ],
+      taxOptimizer: {
+        ...settings,
+        socialSecurityStreamId: id,
+        socialSecurityMonthly: 0,
+        socialSecurityClaimAge: null,
+      },
+    });
+  };
   const salary = plan.personal.currentAnnualSalary ?? 0;
   const defaultMagi = Math.max(
     0,
@@ -917,62 +944,38 @@ export function TaxOptimizerSettingsCard({
         </Section>
 
         <Section title={t("goals:tax_plan.settings.section.social_security")}>
-          <div className="space-y-1">
-            <FieldLabel
-              label={t("goals:tax_plan.settings.social_security_stream")}
-              info="social_security_stream"
-            />
-            <Select
-              value={settings.socialSecurityStreamId ?? NO_STREAM}
-              onValueChange={(value) =>
-                update({ socialSecurityStreamId: value === NO_STREAM ? null : value })
-              }
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={NO_STREAM}>
-                  {t("goals:tax_plan.settings.enter_social_security")}
-                </SelectItem>
-                {plan.incomeStreams.map((stream) => (
-                  <SelectItem key={stream.id} value={stream.id}>
-                    {stream.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          {!linkedStream && (
-            <>
-              <AmountField
-                id="tax-ss-monthly"
-                label={t("goals:tax_plan.settings.social_security_monthly")}
-                info="social_security_monthly"
-                unit="perMonth"
-                value={settings.socialSecurityMonthly}
-                onCommit={(value) => update({ socialSecurityMonthly: value ?? 0 })}
-              />
-              <AmountField
-                id="tax-ss-age"
-                label={t("goals:tax_plan.settings.social_security_claim_age")}
-                info="social_security_claim_age"
-                unit="age"
-                value={settings.socialSecurityClaimAge ?? 67}
-                onCommit={(value) =>
-                  update({
-                    socialSecurityClaimAge:
-                      value == null ? null : Math.min(70, Math.max(62, value)),
+          <p className="text-muted-foreground text-xs">
+            {linkedStream
+              ? t(
+                  claimOptimized
+                    ? "goals:tax_plan.settings.social_security_summary_optimized"
+                    : "goals:tax_plan.settings.social_security_summary",
+                  {
+                    label: linkedStream.label,
+                    amount: money(linkedStream.monthlyAmount ?? 0),
+                    age: linkedStream.startAge,
+                  },
+                )
+              : enteredSocialSecurity
+                ? t("goals:tax_plan.settings.social_security_entered", {
+                    amount: money(settings.socialSecurityMonthly ?? 0),
+                    age: settings.socialSecurityClaimAge ?? 67,
                   })
-                }
-              />
-            </>
+                : t("goals:tax_plan.settings.social_security_none")}
+          </p>
+          {enteredSocialSecurity && (
+            <div className="bg-muted/40 space-y-2 rounded-md p-3 text-xs">
+              <p>{t("goals:tax_plan.settings.social_security_move_note")}</p>
+              <Button variant="outline" size="sm" onClick={moveSocialSecurity}>
+                {t("goals:tax_plan.settings.social_security_move")}
+              </Button>
+            </div>
           )}
           <SwitchField
             id="tax-optimize-claim"
             label={t("goals:tax_plan.settings.optimize_claim_age")}
             info="optimize_claim_age"
-            checked={(settings.optimizeClaimAge ?? false) && hasSocialSecurity}
+            checked={claimOptimized}
             disabled={!hasSocialSecurity}
             note={
               hasSocialSecurity
@@ -1122,6 +1125,22 @@ export function TaxOptimizerSettingsCard({
             value={settings.taxableContribution}
             onCommit={(value) => update({ taxableContribution: value ?? 0 })}
           />
+          {/* Grows the fixed amounts above; optimized ones are chosen each year. */}
+          {(!settings.optimizeContributions || (settings.taxableContribution ?? 0) > 0) && (
+            <AmountField
+              id="tax-contribution-growth"
+              label={t("goals:tax_plan.settings.contribution_growth")}
+              info="contribution_growth"
+              unit="percent"
+              value={plan.investment.contributionGrowthRate}
+              onCommit={(value) =>
+                onSavePlan({
+                  ...plan,
+                  investment: { ...plan.investment, contributionGrowthRate: value ?? 0 },
+                })
+              }
+            />
+          )}
         </Section>
 
         <Section title={t("goals:tax_plan.settings.section.taxes")}>

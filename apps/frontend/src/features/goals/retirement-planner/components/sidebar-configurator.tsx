@@ -563,6 +563,7 @@ export function SidebarConfigurator({
     }));
     setEditingSection("income");
     setExpandedIncomeId(id);
+    return id;
   };
 
   const updateStream = (id: string, patch: Partial<RetirementIncomeStream>) =>
@@ -571,8 +572,21 @@ export function SidebarConfigurator({
       incomeStreams: d.incomeStreams.map((s) => (s.id === id ? { ...s, ...patch } : s)),
     }));
 
+  // The tax-optimized style taxes this stream as Social Security; the link
+  // lives with its settings.
+  const socialSecurityId = draft.taxOptimizer?.socialSecurityStreamId ?? null;
+  const setSocialSecurityStream = (id: string | null) =>
+    update((d) => ({ ...d, taxOptimizer: { ...d.taxOptimizer, socialSecurityStreamId: id } }));
+
   const removeStream = (id: string) => {
-    update((d) => ({ ...d, incomeStreams: d.incomeStreams.filter((s) => s.id !== id) }));
+    update((d) => ({
+      ...d,
+      incomeStreams: d.incomeStreams.filter((s) => s.id !== id),
+      taxOptimizer:
+        d.taxOptimizer?.socialSecurityStreamId === id
+          ? { ...d.taxOptimizer, socialSecurityStreamId: null }
+          : d.taxOptimizer,
+    }));
     setExpandedIncomeId((current) => (current === id ? null : current));
   };
 
@@ -663,6 +677,11 @@ export function SidebarConfigurator({
             {plannerMode !== "optimized" && (
               <ConfigRow label={t("goals:sidebar.plan.monthly_contribution_until_retirement")}>
                 {amountFormatting.formatAmount(draft.investment.monthlyContribution, currency)}
+              </ConfigRow>
+            )}
+            {plannerMode !== "optimized" && draft.investment.contributionGrowthRate > 0 && (
+              <ConfigRow label={t("goals:sidebar.assumptions.contribution_growth_per_year")}>
+                {numberFormatting.formatPercent(draft.investment.contributionGrowthRate)}
               </ConfigRow>
             )}
           </div>
@@ -787,6 +806,26 @@ export function SidebarConfigurator({
                 prefix={moneyPrefix}
                 format={(v) => String(Math.round(v))}
                 inputWidthClassName="w-56"
+              />
+            )}
+            {draftMode !== "optimized" && (
+              <LeverRow
+                label={t("goals:sidebar.assumptions.contribution_growth_per_year")}
+                hint={t("goals:sidebar.plan.contribution_growth_hint")}
+                value={draft.investment.contributionGrowthRate}
+                onChange={(v) => setInvestment("contributionGrowthRate", v)}
+                min={0}
+                max={rateSliderMaxFor(
+                  draft.investment.contributionGrowthRate,
+                  DEFAULT_CONTRIBUTION_GROWTH_SLIDER_MAX,
+                  CONTRIBUTION_GROWTH_SLIDER_INCREMENT,
+                  MAX_RETIREMENT_CONTRIBUTION_GROWTH,
+                )}
+                inputMax={MAX_RETIREMENT_CONTRIBUTION_GROWTH}
+                step={0.001}
+                suffix="%"
+                format={(v) => (v * 100).toFixed(1)}
+                warning={highContributionGrowthWarning(draft.investment.contributionGrowthRate, t)}
               />
             )}
             <LeverRow
@@ -1224,7 +1263,9 @@ export function SidebarConfigurator({
                       type:
                         s.streamType === "dc"
                           ? t("goals:sidebar.income.pension_fund")
-                          : t("goals:sidebar.income.income"),
+                          : s.id === socialSecurityId
+                            ? t("goals:sidebar.income.social_security")
+                            : t("goals:sidebar.income.income"),
                       start: s.startAge,
                       end: draft.personal.planningHorizonAge,
                     })}
@@ -1240,6 +1281,11 @@ export function SidebarConfigurator({
                   currency={currency}
                 />
               </div>
+              <p className="text-muted-foreground text-xs leading-relaxed">
+                {plannerMode === "optimized"
+                  ? t("goals:sidebar.income.amounts_before_tax")
+                  : t("goals:sidebar.income.amounts_after_tax")}
+              </p>
             </div>
           ) : (
             <div className="space-y-2">
@@ -1350,7 +1396,11 @@ export function SidebarConfigurator({
                             { value: "dc", label: t("goals:sidebar.income.fund") },
                           ]}
                           value={s.streamType}
-                          onValueChange={(value) =>
+                          onValueChange={(value) => {
+                            // A fund is never Social Security.
+                            if (value === "dc" && s.id === socialSecurityId) {
+                              setSocialSecurityStream(null);
+                            }
                             updateStream(s.id, {
                               streamType: value,
                               currentValue: value === "dc" ? (s.currentValue ?? 0) : s.currentValue,
@@ -1358,14 +1408,38 @@ export function SidebarConfigurator({
                                 value === "dc"
                                   ? (s.monthlyContribution ?? 0)
                                   : s.monthlyContribution,
-                            })
-                          }
+                            });
+                          }}
                         />
                       </div>
                       <div className="divide-border divide-y">
                         {s.streamType !== "dc" && (
+                          <div className="grid gap-2 px-1 py-3 sm:grid-cols-[1fr_auto] sm:items-center sm:gap-3">
+                            <div className="min-w-0">
+                              <div className="text-foreground text-xs font-semibold">
+                                {t("goals:sidebar.income.is_social_security")}
+                              </div>
+                              <div className="text-muted-foreground mt-0.5 text-[11px] leading-tight">
+                                {t("goals:sidebar.income.is_social_security_help")}
+                              </div>
+                            </div>
+                            <Switch
+                              checked={s.id === socialSecurityId}
+                              onCheckedChange={(checked) =>
+                                setSocialSecurityStream(checked ? s.id : null)
+                              }
+                            />
+                          </div>
+                        )}
+                        {s.streamType !== "dc" && (
                           <LeverRow
-                            label={t("goals:sidebar.income.monthly_income_after_tax")}
+                            label={
+                              plannerMode !== "optimized"
+                                ? t("goals:sidebar.income.monthly_income_after_tax")
+                                : s.id === socialSecurityId
+                                  ? t("goals:sidebar.income.monthly_benefit_before_tax")
+                                  : t("goals:sidebar.income.monthly_income_before_tax")
+                            }
                             kind="money"
                             value={s.monthlyAmount ?? 0}
                             onChange={(v) => updateStream(s.id, { monthlyAmount: v })}
@@ -1479,7 +1553,11 @@ export function SidebarConfigurator({
                             )}
                             {s.startAge <= draft.personal.currentAge && (
                               <LeverRow
-                                label={t("goals:sidebar.income.monthly_payout_after_tax")}
+                                label={
+                                  plannerMode === "optimized"
+                                    ? t("goals:sidebar.income.monthly_payout_before_tax")
+                                    : t("goals:sidebar.income.monthly_payout_after_tax")
+                                }
                                 kind="money"
                                 value={s.monthlyAmount ?? amount}
                                 onChange={(v) => updateStream(s.id, { monthlyAmount: v })}
@@ -1579,6 +1657,18 @@ export function SidebarConfigurator({
             >
               <Icons.Plus className="h-3 w-3" /> {t("goals:sidebar.income.add_income")}
             </button>
+            {!draft.incomeStreams.some((s) => s.id === socialSecurityId) && (
+              <button
+                className="text-muted-foreground hover:text-foreground flex w-full items-center justify-center gap-1 rounded-md border border-dashed py-1.5 text-xs transition-colors"
+                onClick={() =>
+                  setSocialSecurityStream(
+                    addStream({ label: t("goals:sidebar.income.social_security"), startAge: 67 }),
+                  )
+                }
+              >
+                <Icons.Plus className="h-3 w-3" /> {t("goals:sidebar.income.add_social_security")}
+              </button>
+            )}
             <button
               className="text-muted-foreground hover:text-foreground flex w-full items-center justify-center gap-1 rounded-md border border-dashed py-1.5 text-xs transition-colors"
               onClick={() =>
@@ -1637,11 +1727,6 @@ export function SidebarConfigurator({
             <ConfigRow label={t("goals:sidebar.assumptions.inflation")}>
               {numberFormatting.formatPercent(draft.investment.inflationRate)}
             </ConfigRow>
-            {draft.investment.contributionGrowthRate > 0 && (
-              <ConfigRow label={t("goals:sidebar.assumptions.contribution_growth_per_year")}>
-                {numberFormatting.formatPercent(draft.investment.contributionGrowthRate)}
-              </ConfigRow>
-            )}
           </div>
         }
         editContent={
@@ -1734,23 +1819,6 @@ export function SidebarConfigurator({
               suffix="%"
               format={(v) => (v * 100).toFixed(1)}
               warning={highInflationWarning(draft.investment.inflationRate, t)}
-            />
-            <LeverRow
-              label={t("goals:sidebar.assumptions.contribution_growth_per_year")}
-              value={draft.investment.contributionGrowthRate}
-              onChange={(v) => setInvestment("contributionGrowthRate", v)}
-              min={0}
-              max={rateSliderMaxFor(
-                draft.investment.contributionGrowthRate,
-                DEFAULT_CONTRIBUTION_GROWTH_SLIDER_MAX,
-                CONTRIBUTION_GROWTH_SLIDER_INCREMENT,
-                MAX_RETIREMENT_CONTRIBUTION_GROWTH,
-              )}
-              inputMax={MAX_RETIREMENT_CONTRIBUTION_GROWTH}
-              step={0.001}
-              suffix="%"
-              format={(v) => (v * 100).toFixed(1)}
-              warning={highContributionGrowthWarning(draft.investment.contributionGrowthRate, t)}
             />
           </div>
         }

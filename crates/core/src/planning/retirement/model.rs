@@ -209,23 +209,12 @@ pub struct TaxOptimizerSettings {
     /// and its monthly amount is the benefit at that age.
     #[serde(default)]
     pub social_security_stream_id: Option<String>,
-    /// Social Security entered here instead of as an income stream: the
-    /// monthly benefit (today's money) when claiming at `social_security_claim_age`.
-    /// Ignored when `social_security_stream_id` is set.
-    #[serde(default)]
-    pub social_security_monthly: f64,
-    #[serde(default)]
-    pub social_security_claim_age: Option<f64>,
     /// Let the optimizer pick the Social Security claiming month (62–70)
     /// instead of using the planned claim age.
     #[serde(default)]
     pub optimize_claim_age: bool,
     #[serde(default)]
     pub goal: TaxPlanGoal,
-    /// No longer used: the must-have spending items are the floor. Kept so
-    /// the app can point out a figure saved before that change.
-    #[serde(default)]
-    pub minimum_expenses: f64,
     /// Housing as saved before rent and home costs became spending items;
     /// read once by `move_housing_to_expenses`.
     #[serde(default)]

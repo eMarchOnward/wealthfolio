@@ -185,14 +185,9 @@ export type Housing = "own" | "rent";
 export interface TaxOptimizerSettings {
   /** Income stream that represents Social Security (start age = claim age). */
   socialSecurityStreamId?: string | null;
-  /** Social Security entered directly (used when no stream is linked). */
-  socialSecurityMonthly?: number;
-  socialSecurityClaimAge?: number | null;
   /** Let the optimizer choose the claiming month instead of the planned age. */
   optimizeClaimAge?: boolean;
   goal?: TaxPlanGoal;
-  /** No longer used: the must-have spending items are the floor. */
-  minimumExpenses?: number;
   housing?: Housing;
   /** Rent per month while renting. */
   monthlyRent?: number;

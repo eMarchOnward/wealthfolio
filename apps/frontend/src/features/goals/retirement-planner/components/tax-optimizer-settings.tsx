@@ -806,36 +806,8 @@ export function TaxOptimizerSettingsCard({
   const goal: TaxPlanGoal = settings.goal ?? "fixedAge";
   const earliest = goal === "earliestAge";
   const linkedStream = plan.incomeStreams.find((s) => s.id === settings.socialSecurityStreamId);
-  // Amounts typed here before Social Security moved to the Retirement Income
-  // card; the planner still uses them until they are moved.
-  const enteredSocialSecurity = !linkedStream && (settings.socialSecurityMonthly ?? 0) > 0;
-  const hasSocialSecurity = linkedStream
-    ? (linkedStream.monthlyAmount ?? 0) > 0
-    : enteredSocialSecurity;
+  const hasSocialSecurity = (linkedStream?.monthlyAmount ?? 0) > 0;
   const claimOptimized = (settings.optimizeClaimAge ?? false) && hasSocialSecurity;
-  const moveSocialSecurity = () => {
-    const id = crypto.randomUUID?.() ?? `stream-${Date.now()}`;
-    onSavePlan({
-      ...plan,
-      incomeStreams: [
-        ...plan.incomeStreams,
-        {
-          id,
-          label: t("goals:sidebar.income.social_security"),
-          streamType: "db",
-          startAge: Math.round(settings.socialSecurityClaimAge ?? 67),
-          adjustForInflation: true,
-          monthlyAmount: settings.socialSecurityMonthly,
-        },
-      ],
-      taxOptimizer: {
-        ...settings,
-        socialSecurityStreamId: id,
-        socialSecurityMonthly: 0,
-        socialSecurityClaimAge: null,
-      },
-    });
-  };
   const salary = plan.personal.currentAnnualSalary ?? 0;
   const defaultMagi = Math.max(
     0,
@@ -846,7 +818,6 @@ export function TaxOptimizerSettingsCard({
     activeExpenseItems(plan.expenses, plan.personal.currentAge)
       .filter((item) => item.essential ?? true)
       .reduce((sum, item) => sum + item.monthlyAmount, 0) * 12;
-  const oldMinimum = settings.minimumExpenses ?? 0;
   const money = (value: number) => formatAmount(Math.round(value), plan.currency);
 
   return (
@@ -928,19 +899,6 @@ export function TaxOptimizerSettingsCard({
               ? t("goals:tax_plan.settings.spending_floor", { amount: money(spendingFloor) })
               : t("goals:tax_plan.settings.spending_floor_none")}
           </p>
-          {oldMinimum > 0 && (
-            <div className="bg-muted/40 space-y-2 rounded-md p-3 text-xs">
-              <p>
-                {t("goals:tax_plan.settings.old_minimum", {
-                  amount: money(oldMinimum),
-                  floor: money(spendingFloor),
-                })}
-              </p>
-              <Button variant="outline" size="sm" onClick={() => update({ minimumExpenses: 0 })}>
-                {t("goals:tax_plan.settings.old_minimum_dismiss")}
-              </Button>
-            </div>
-          )}
         </Section>
 
         <Section title={t("goals:tax_plan.settings.section.social_security")}>
@@ -956,21 +914,8 @@ export function TaxOptimizerSettingsCard({
                     age: linkedStream.startAge,
                   },
                 )
-              : enteredSocialSecurity
-                ? t("goals:tax_plan.settings.social_security_entered", {
-                    amount: money(settings.socialSecurityMonthly ?? 0),
-                    age: settings.socialSecurityClaimAge ?? 67,
-                  })
-                : t("goals:tax_plan.settings.social_security_none")}
+              : t("goals:tax_plan.settings.social_security_none")}
           </p>
-          {enteredSocialSecurity && (
-            <div className="bg-muted/40 space-y-2 rounded-md p-3 text-xs">
-              <p>{t("goals:tax_plan.settings.social_security_move_note")}</p>
-              <Button variant="outline" size="sm" onClick={moveSocialSecurity}>
-                {t("goals:tax_plan.settings.social_security_move")}
-              </Button>
-            </div>
-          )}
           <SwitchField
             id="tax-optimize-claim"
             label={t("goals:tax_plan.settings.optimize_claim_age")}

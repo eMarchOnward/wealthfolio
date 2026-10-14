@@ -38,11 +38,11 @@ describe("tax plan comparison", () => {
       ...plan,
       personal: { ...plan.personal, targetRetirementAge: 60, currentAge: 99 },
       tax: { taxableWithdrawalRate: 0.5, taxDeferredWithdrawalRate: 0, taxFreeWithdrawalRate: 0 },
-      taxOptimizer: { minimumExpenses: 50_000 },
+      taxOptimizer: { bequestFloor: 50_000 },
     };
     const paths = settingsDifferences([plan, other]).map((d) => d.path);
     expect(paths).toContain("personal.targetRetirementAge");
-    expect(paths).toContain("taxOptimizer.minimumExpenses");
+    expect(paths).toContain("taxOptimizer.bequestFloor");
     expect(paths.some((p) => p.startsWith("tax.") || p === "personal.currentAge")).toBe(false);
     expect(settingsDifferences([plan, plan])).toEqual([]);
   });

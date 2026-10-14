@@ -452,23 +452,15 @@ fn social_security_stream<'a>(
     plan.income_streams.iter().find(|stream| stream.id == id)
 }
 
-/// The planned claim age and the monthly benefit at that age: from the linked
-/// income stream, else from the amounts entered in the tax settings.
-fn planned_social_security(
-    stream: Option<&RetirementIncomeStream>,
-    settings: &TaxOptimizerSettings,
-) -> Option<(f64, f64)> {
-    let (claim_age, monthly) = match stream {
-        Some(stream) => (
-            f64::from(stream.start_age),
-            stream.monthly_amount.unwrap_or(0.0),
-        ),
-        None => (
-            settings.social_security_claim_age.unwrap_or(67.0),
-            settings.social_security_monthly,
-        ),
-    };
-    (monthly > 0.0).then_some((claim_age.clamp(MIN_CLAIM_AGE, MAX_CLAIM_AGE), monthly))
+/// The planned claim age and the monthly benefit at that age, from the
+/// income stream marked as Social Security.
+fn planned_social_security(stream: Option<&RetirementIncomeStream>) -> Option<(f64, f64)> {
+    let stream = stream?;
+    let monthly = stream.monthly_amount.unwrap_or(0.0);
+    (monthly > 0.0).then_some((
+        f64::from(stream.start_age).clamp(MIN_CLAIM_AGE, MAX_CLAIM_AGE),
+        monthly,
+    ))
 }
 
 /// Social Security at the planned claim age and benefit, from which the
@@ -479,7 +471,7 @@ fn social_security(
     birth_year: i32,
     birth_month: u32,
 ) -> Result<Option<SocialSecurity>> {
-    let Some((claim_age, monthly)) = planned_social_security(stream, settings) else {
+    let Some((claim_age, monthly)) = planned_social_security(stream) else {
         return Ok(None);
     };
     let fra = full_retirement_age(birth_year, birth_month, 15);
@@ -1530,9 +1522,8 @@ fn solve_plan(
             result.home = home_summary(plan, &scenario)?;
             result.contribution_caps = contribution_caps(plan, &scenario);
             let settings = plan.tax_optimizer.clone().unwrap_or_default();
-            let stated_claim_age =
-                planned_social_security(social_security_stream(plan, &settings), &settings)
-                    .map_or(MAX_CLAIM_AGE, |(age, _)| age);
+            let stated_claim_age = planned_social_security(social_security_stream(plan, &settings))
+                .map_or(MAX_CLAIM_AGE, |(age, _)| age);
             result.baseline = Some(baseline(&scenario, stated_claim_age)?);
             Ok(result)
         }
@@ -2207,18 +2198,13 @@ mod tests {
     }
 
     #[test]
-    fn social_security_can_be_entered_without_a_stream() {
+    fn no_social_security_without_a_marked_stream() {
         let mut p = plan();
-        p.income_streams.clear();
         if let Some(settings) = p.tax_optimizer.as_mut() {
             settings.social_security_stream_id = None;
-            settings.social_security_monthly = 2_400.0;
-            settings.social_security_claim_age = Some(67.0);
         }
         let s = build_tax_optimized_scenario(&p, &accounts(), AS_OF).expect("valid plan");
-        let ss = s.social_security.expect("benefits");
-        assert!(matches!(ss.claim, ClaimStrategy::AtAge(age) if age == 67.0));
-        assert!((ss.monthly_pia - 2_400.0).abs() < 1e-6);
+        assert!(s.social_security.is_none());
         // Recent MAGI defaults to pay less the pre-tax deferral.
         assert!((s.options.prior_magi[0] - (140_000.0 - 24_500.0)).abs() < 1e-6);
     }
